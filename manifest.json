@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "LilChat",
+  "version": "0.4.1",
+  "description": "Um chat persistente em popup ou sidebar.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "activeTab",
+    "sidePanel"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidepanel.html",
+        "popup.html",
+        "popup.css",
+        "popup.js",
+        "coloris.min.css",
+        "coloris.min.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

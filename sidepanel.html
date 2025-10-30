@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="coloris.min.css">
+  <link rel="stylesheet" href="popup.css">
+  <script src="coloris.min.js"></script>
+</head>
+<body class="is-sidebar">
+
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h3>Joined Rooms</h3>
+    </div>
+    <div id="room-list">
+      </div>
+  </div>
+  
+  <div id="main-content">
+    <div id="terminal-header">
+      <button id="menu-toggle-btn">&#9776;</button>
+      <h2 id="current-room-title">/home</h2>
+      </div>
+
+    <div id="terminal">
+      <div id="chat-log"></div>
+      <div id="prompt">
+        <span class="prompt-symbol">></span>
+        <input type="text" id="chat-input" placeholder="Type here..." autofocus>
+      </div>
+    </div>
+    
+    </div>
+  
+  <div id="rank-modal" class="hidden">
+     <div class="modal-content">
+      <span class="modal-close">&times;</span>
+      <h2>Rank Customizer</h2>
+      <div class="modal-tabs">
+        <button id="create-tab-btn" class="tab-link active">Create New</button>
+        <button id="browse-tab-btn" class="tab-link">Browse</button>
+      </div>
+      <div id="create-tab" class="tab-content">
+        <h3>Create a New Rank</h3>
+        <div class="form-group">
+          <label for="rank-name-input">Rank Name (4 letters)</label>
+          <input type="text" id="rank-name-input" maxlength="4" placeholder="MVP">
+        </div>
+        <div class="form-group">
+          <label for="rank-color-input">Rank Color</label>
+          <input type="text" id="rank-color-input" data-coloris value="#FFFFFF">
+        </div>
+        <div class="form-group-half">
+          <div class="form-group">
+            <label for="rank-outline-input">Outline Color</label>
+            <input type="text" id="rank-outline-input" data-coloris value="#000000">
+          </div>
+          <div class="form-group">
+            <label for="rank-outline-width">Outline Size (px)</label>
+            <input type="number" id="rank-outline-width" value="1" min="0" max="3">
+          </div>
+        </div>
+        <div class="form-group-half">
+          <div class="form-group">
+            <label for="rank-shine-input">Shine/Glow Color</label>
+            <input type="text" id="rank-shine-input" data-coloris value="#000000">
+          </div>
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="rank-animate-shine">
+            <label for="rank-animate-shine">Pulsing Shine?</label>
+          </div>
+        </div>
+        <h4>Preview:</h4>
+        <div id="rank-preview" class="message">
+          <span class="nickname rank-preview-span">[RANK]</span>
+          <span class="nick" id="rank-preview-nick"> YourName:</span>
+          <span class="text"> Look at my new rank!</span>
+        </div>
+        <button id="save-rank-button">Save and Apply</button>
+      </div>
+      <div id="browse-tab" class="tab-content hidden">
+        <h3>Browse Public Ranks</h3>
+        <div id="rank-list"></div>
+        <div id="pagination-controls">
+          <button id="prev-page-btn">&lt; Prev</button>
+          <span id="page-indicator">Page 1 / 1</span>
+          <button id="next-page-btn">Next &gt;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

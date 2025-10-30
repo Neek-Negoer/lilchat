@@ -1,0 +1,126 @@
+/* --- Basic setup --- */
+html { overflow: hidden; }
+body {
+  font-family: 'Courier New', Courier, monospace; font-size: 14px; margin: 0; padding: 0;
+  overflow: hidden; background-color: #0d0d0d; position: relative;
+}
+/* Configuração padrão (Popup) */
+body.is-popup {
+  width: 400px; height: 300px;
+  min-width: 300px; min-height: 200px;
+  max-width: 800px; max-height: 600px;
+}
+/* Configuração da Sidebar (ela usa o mesmo CSS!) */
+body.is-sidebar {
+  width: 100%; /* O iframe controla a largura */
+  height: 100vh; /* Altura total */
+}
+
+/* --- Main Layout --- */
+#sidebar { position: absolute; top: 0; left: -260px; width: 250px; height: 100%; background-color: #1a1a1a; border-right: 1px solid #333; z-index: 400; transition: left 0.2s ease-out; display: flex; flex-direction: column; }
+#main-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #0d0d0d; z-index: 300; transition: left 0.2s ease-out; display: flex; flex-direction: column; box-sizing: border-box; }
+body.sidebar-open #sidebar { left: 0; }
+body.sidebar-open #main-content { left: 250px; }
+
+/* --- Sidebar Styles --- */
+.sidebar-header { padding: 10px 15px; border-bottom: 1px solid #333; font-family: Arial, sans-serif; color: #fff; }
+.sidebar-header h3 { margin: 0; font-size: 1.1em; }
+#room-list { flex-grow: 1; overflow-y: auto; }
+.room-list-item { padding: 12px 15px; color: #ccc; cursor: pointer; border-bottom: 1px solid #222; font-family: Arial, sans-serif; font-size: 0.9em; }
+.room-list-item:hover { background: #222; }
+.room-list-item.active { background: #007bff; color: #fff; font-weight: bold; }
+.sidebar-footer { padding: 10px; border-top: 1px solid #333; }
+
+/* --- Header Styles --- */
+#terminal-header { display: flex; align-items: center; background-color: #1a1a1a; color: #fff; border-bottom: 1px solid #333; padding: 0 10px; flex-shrink: 0; }
+#menu-toggle-btn { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; padding: 8px 12px 8px 0; }
+#menu-toggle-btn:hover { color: #007bff; }
+#current-room-title { margin: 0; font-size: 1.1em; font-family: 'Courier New', Courier, monospace; flex-grow: 1; }
+
+/* --- Botão Destacar --- */
+#undock-btn { background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer; padding: 8px 0 8px 12px; }
+#undock-btn:hover { color: #fff; }
+
+/* --- Terminal Styles --- */
+#terminal { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+#chat-log { flex-grow: 1; overflow-y: auto; padding: 10px; }
+.message.system-event { color: #888; font-style: italic; font-size: 0.9em; }
+.message { margin-bottom: 5px; word-wrap: break-word; }
+.message .nick { font-weight: bold; cursor: pointer; color: #f0f0f0; }
+.message .nick:hover { text-decoration: underline; }
+.message .text { color: #f0f0f0; }
+#prompt { display: flex; padding: 5px 10px; background-color: #1a1a1a; border-top: 1px solid #333; flex-shrink: 0; }
+.prompt-symbol { margin-right: 5px; color: #f0f0f0; }
+#chat-input { flex-grow: 1; background: transparent; border: none; outline: none; color: #f0f0f0; font-family: inherit; font-size: inherit; }
+.nickname { font-weight: bold; margin-right: 8px; -webkit-text-stroke-width: 0px; -webkit-text-stroke-color: transparent; text-shadow: none; }
+
+/* ... (Rank Modal, Animação, Browser, Coloris continuam os mesmos) ... */
+.hidden { display: none !important; }
+#rank-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 450; }
+.modal-content { background-color: #1a1a1a; color: #f0f0f0; border: 1px solid #555; width: 90%; padding: 15px; box-sizing: border-box; position: relative; font-family: Arial, sans-serif; font-size: 14px; max-height: 95%; overflow-y: auto; }
+#rank-modal .modal-close { position: absolute; top: 5px; right: 15px; font-size: 24px; font-weight: bold; cursor: pointer; color: #888; }
+#rank-modal .modal-close:hover { color: #fff; }
+#rank-modal h2, #rank-modal h3, #rank-modal h4 { margin: 0 0 10px 0; color: #fff; border-bottom: 1px solid #444; padding-bottom: 5px; }
+#rank-modal h4 { font-size: 1em; border-bottom: none; }
+.modal-tabs { display: flex; margin-bottom: 10px; }
+.tab-link { background: #333; border: 1px solid #555; color: #aaa; padding: 8px 12px; cursor: pointer; flex-grow: 1; }
+.tab-link.active { background: #555; color: #fff; }
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; margin-bottom: 5px; font-size: 0.9em; color: #ccc; }
+.form-group input[type="text"], .form-group input[type="number"] { width: 100%; padding: 5px; box-sizing: border-box; background: #333; border: 1px solid #555; color: #fff; font-family: 'Courier New', Courier, monospace; }
+.form-group-half { display: flex; gap: 10px; }
+.form-group-half .form-group { flex-basis: 50%; }
+.checkbox-group { display: flex; align-items: center; height: 100%; padding-top: 10px; }
+.checkbox-group input { margin-right: 8px; }
+#rank-preview { background-color: #0d0d0d; padding: 10px; border: 1px solid #333; margin-bottom: 15px; font-family: 'Courier New', Courier, monospace; }
+#save-rank-button { background: #007bff; color: white; border: none; padding: 10px 15px; width: 100%; cursor: pointer; font-size: 1em; }
+#save-rank-button:hover { background: #0056b3; }
+@keyframes pulse-shine { 0% { text-shadow: 0 0 16px var(--shine-color, transparent); } 50% { text-shadow: 0 0 4px var(--shine-color, transparent); } 100% { text-shadow: 0 0 16px var(--shine-color, transparent); } }
+.animated-shine { animation: pulse-shine 1.5s infinite; }
+#rank-list { background: #0d0d0d; border: 1px solid #333; min-height: 100px; max-height: 150px; overflow-y: auto; margin-bottom: 10px; }
+.rank-list-item { padding: 8px 10px; border-bottom: 1px solid #222; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-size: 14px; word-wrap: break-word; }
+.rank-list-item:hover { background-color: #2a2a2a; }
+.rank-list-item .rank-preview { font-weight: bold; margin-right: 8px; }
+#pagination-controls { display: flex; justify-content: space-between; align-items: center; }
+#pagination-controls button { background: #333; border: 1px solid #555; color: #fff; padding: 5px 10px; cursor: pointer; }
+#pagination-controls button:disabled { background: #222; color: #555; cursor: not-allowed; }
+#page-indicator { font-size: 0.9em; color: #aaa; }
+.form-group input[data-coloris] { height: 35px; font-family: monospace; padding: 0 8px; border: 1px solid #555; background: #333; color: #fff; }
+.clr-field { width: 100%; }
+.clr-picker { background: #1a1a1a; border: 1px solid #555; box-shadow: 0 0 15px rgba(0,0,0,0.5); z-index: 500; }
+.clr-preview, .clr-alpha, .clr-clear, .clr-hue, .clr-color-area { border-color: #555; }
+.clr-color-area, .clr-hue { border-radius: 0; }
+.clr-alpha { display: none; }
+.clr-clear { color: #fff; background: #333; }
+.clr-clear:hover { background: #555; }
+
+/* --- NOVO: Lógica de classe --- */
+/* Esconde o resize E o undock se NÃO for popup */
+body:not(.is-popup) #resize-handle,
+body:not(.is-popup) #undock-btn {
+  display: none;
+}
+/* O handle só aparece no popup */
+body.is-popup #resize-handle {
+  position: absolute; bottom: 0; right: 0; width: 15px; height: 15px;
+  background: repeating-linear-gradient(-45deg, #555, #555 2px, #333 2px, #333 4px);
+  border-top: 1px solid #777; border-left: 1px solid #777; cursor: nwse-resize; z-index: 350;
+}
+body.is-sidebar #sidebar {
+  left: auto;
+  right: -260px;
+  border-right: none;
+  border-left: 1px solid #333;
+  transition: right 0.2s ease-out;
+}
+body.is-sidebar.sidebar-open #sidebar {
+  left: auto;
+  right: 0;
+}
+body.is-sidebar #main-content {
+  left: 0;
+  transition: none; 
+}
+body.is-sidebar.sidebar-open #main-content {
+  left: 0;
+}
