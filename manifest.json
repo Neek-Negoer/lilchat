@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LilChat",
-  "version": "0.4.1",
+  "version": "0.6.0",
   "description": "Um chat persistente em popup ou sidebar.",
   "action": {
     "default_popup": "popup.html"
@@ -9,7 +9,7 @@
   "permissions": [
     "storage",
     "alarms",
-    "activeTab",
+    "tabs",
     "sidePanel"
   ],
   "background": {
@@ -26,7 +26,10 @@
         "popup.css",
         "popup.js",
         "coloris.min.css",
-        "coloris.min.js"
+        "coloris.min.js",
+        "firebase-app-compat.js",
+        "firebase-auth-compat.js",
+        "firebase-database-compat.js"
       ],
       "matches": [
         "<all_urls>"

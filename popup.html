@@ -20,6 +20,13 @@
     </div>
     <div id="terminal">
       <div id="chat-log"></div>
+      
+      <div id="reply-preview-bar">
+        <button id="reply-cancel-btn" title="Cancelar Resposta">&times;</button>
+        <div id="reply-preview-bar-content">
+          Respondendo a <strong>User</strong>: <span>Texto da mensagem...</span>
+        </div>
+      </div>
       <div id="prompt">
         <span class="prompt-symbol">></span>
         <input type="text" id="chat-input" placeholder="Type here..." autofocus>
@@ -30,12 +37,8 @@
   
   <div id="rank-modal" class="hidden">
      <div class="modal-content">
-      <span class="modal-close">&times;</span>
-      <h2>Rank Customizer</h2>
-      <div class="modal-tabs">
-        <button id="create-tab-btn" class="tab-link active">Create New</button>
-        <button id="browse-tab-btn" class="tab-link">Browse</button>
-      </div>
+      <span class="modal-close">&times;</span><h2>Rank Customizer</h2>
+      <div class="modal-tabs"><button id="create-tab-btn" class="tab-link active">Create New</button><button id="browse-tab-btn" class="tab-link">Browse</button></div>
       <div id="create-tab" class="tab-content">
         <h3>Create a New Rank</h3>
         <div class="form-group"><label for="rank-name-input">Rank Name (4 letters)</label><input type="text" id="rank-name-input" maxlength="4" placeholder="MVP"></div>
@@ -47,13 +50,50 @@
         <button id="save-rank-button">Save and Apply</button>
       </div>
       <div id="browse-tab" class="tab-content hidden">
-        <h3>Browse Public Ranks</h3>
-        <div id="rank-list"></div>
+        <h3>Browse Public Ranks</h3><div id="rank-list"></div>
         <div id="pagination-controls"><button id="prev-page-btn">&lt; Prev</button><span id="page-indicator">Page 1 / 1</span><button id="next-page-btn">Next &gt;</button></div>
       </div>
     </div>
   </div>
-  
+
+  <div id="profile-edit-modal" class="hidden">
+    <div class="modal-content profile-edit-modal-content">
+      <span class="modal-close" id="profile-edit-close-btn">&times;</span>
+      <h2>Editar Perfil</h2>
+      <div class="form-group">
+        <label for="profile-pic-input">URL da Foto de Perfil</label>
+        <input type="text" id="profile-pic-input" placeholder="https://i.imgur.com/...">
+      </div>
+      <div class="form-group">
+        <label for="profile-bio-input">Sua Bio (máx 150 caracteres)</label>
+        <textarea id="profile-bio-input" rows="4" maxlength="150" placeholder="Sobre mim..."></textarea>
+      </div>
+      <button id="profile-save-button">Salvar Perfil</button>
+    </div>
+  </div>
+
+  <div id="profile-view-modal" class="hidden">
+    <div class="modal-content profile-view-modal-content">
+      <span class="modal-close" id="profile-view-close-btn">&times;</span>
+      <div class="profile-header">
+        <img id="profile-view-pic" src="" alt="Avatar" class="profile-pic">
+        <div class="profile-info">
+          <h2 id="profile-view-name">Nickname</h2>
+          <div id="profile-view-rank" class="message">
+            <span class="nickname">[RANK]</span>
+          </div>
+        </div>
+      </div>
+      <div class="profile-body">
+        <h3>Bio</h3>
+        <p id="profile-view-bio">Este usuário ainda não escreveu uma bio.</p>
+      </div>
+      <button id="profile-dm-button" data-nickname="">Iniciar DM</button>
+    </div>
+  </div>
+
+  <script src="firebase-app-compat.js"></script>
+  <script src="firebase-database-compat.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
