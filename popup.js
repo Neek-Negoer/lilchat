@@ -6,7 +6,7 @@ let joinedRooms = [];
 let unreadCounts = {};
 let hasSeenHomeTutorial = false;
 let database; 
-let replyContext = null; // NOVO: Guarda o { messageId, nickname, rank, text }
+let replyContext = null; // Guarda o { messageId, nickname, rank, text }
 
 // --- Get ALL Elements (DECLARAÇÕES ATUALIZADAS) ---
 let terminal, chatLog, chatInput, rankModal, rankModalCloseBtn, menuToggleBtn, 
@@ -18,7 +18,6 @@ let terminal, chatLog, chatInput, rankModal, rankModalCloseBtn, menuToggleBtn,
     profileEditModal, profileEditCloseBtn, profilePicInput, profileBioInput, profileSaveButton,
     profileViewModal, profileViewCloseBtn, profileViewPic, profileViewName, 
     profileViewRank, profileViewBio, profileDmButton,
-    // NOVOS ELEMENTOS DE RESPOSTA
     replyPreviewBar, replyPreviewBarContent, replyCancelBtn;
 
 // --- Rank Browser State ---
@@ -71,8 +70,6 @@ function initialize() {
   profileViewRank = document.getElementById('profile-view-rank');
   profileViewBio = document.getElementById('profile-view-bio');
   profileDmButton = document.getElementById('profile-dm-button');
-  
-  // NOVAS ATRIBUIÇÕES DE RESPOSTA
   replyPreviewBar = document.getElementById('reply-preview-bar');
   replyPreviewBarContent = document.getElementById('reply-preview-bar-content');
   replyCancelBtn = document.getElementById('reply-cancel-btn');
@@ -267,14 +264,11 @@ function addMessageToLog(messageData) {
     else if (messageData.event === 'system') { eventText = messageData.text; }
     messageDiv.textContent = eventText;
   } else {
-    // --- NOVO: Renderiza o preview da resposta ---
+    // --- CORREÇÃO: Renderiza o preview da resposta ---
     if (messageData.replyTo) {
       const reply = messageData.replyTo;
       const replyPreviewDiv = document.createElement('div');
       replyPreviewDiv.classList.add('reply-preview');
-      
-      const replyHeader = document.createElement('div');
-      replyHeader.classList.add('reply-preview-header');
       
       // Rank e Nick da msg original
       const replyRankSpan = document.createElement('span');
@@ -285,19 +279,17 @@ function addMessageToLog(messageData) {
       replyNickSpan.classList.add('nick');
       replyNickSpan.textContent = ` ${reply.nickname}:`;
       
-      replyHeader.appendChild(replyRankSpan);
-      replyHeader.appendChild(replyNickSpan);
-      
       // Texto da msg original
-      const replyTextSpan = document.createElement('div');
+      const replyTextSpan = document.createElement('span'); // <-- MUDOU DE DIV PARA SPAN
       replyTextSpan.classList.add('reply-preview-text');
-      replyTextSpan.textContent = reply.text;
+      replyTextSpan.textContent = ` ${reply.text}`; // <-- Adiciona espaço
       
-      replyPreviewDiv.appendChild(replyHeader);
+      replyPreviewDiv.appendChild(replyRankSpan);
+      replyPreviewDiv.appendChild(replyNickSpan);
       replyPreviewDiv.appendChild(replyTextSpan);
       messageDiv.appendChild(replyPreviewDiv); // Adiciona o preview ANTES da msg
     }
-    // --- FIM DO NOVO ---
+    // --- FIM DA CORREÇÃO ---
 
     const rankSpan = document.createElement('span');
     rankSpan.classList.add('nickname');
@@ -337,21 +329,20 @@ function addMessageToLog(messageData) {
     messageDiv.appendChild(nickSpan);
     messageDiv.appendChild(textSpan);
     
-    // --- NOVO: Adiciona botões de Ação ---
     const actionsDiv = document.createElement('div');
     actionsDiv.classList.add('message-actions');
     
     const replyBtn = document.createElement('button');
     replyBtn.classList.add('message-action-btn');
-    replyBtn.innerHTML = '&larr;'; // Flecha para esquerda
+    replyBtn.innerHTML = '&larr;';
     replyBtn.title = 'Reply';
     replyBtn.onclick = () => {
-      setReplyContext(messageData); // Chama a nova função
+      setReplyContext(messageData);
     };
     
     const forwardBtn = document.createElement('button');
     forwardBtn.classList.add('message-action-btn');
-    forwardBtn.innerHTML = '&rarr;'; // Flecha para direita
+    forwardBtn.innerHTML = '&rarr;';
     forwardBtn.title = 'Forward';
     forwardBtn.onclick = () => {
       addMessageToLog({ type: 'event', event: 'system', text: 'Forward (em breve!)' });
@@ -360,7 +351,6 @@ function addMessageToLog(messageData) {
     actionsDiv.appendChild(replyBtn);
     actionsDiv.appendChild(forwardBtn);
     messageDiv.appendChild(actionsDiv);
-    // --- FIM DO NOVO ---
   }
   
   chatLog.appendChild(messageDiv);
@@ -463,7 +453,6 @@ function setupListeners() {
   setupRankModalListeners();
   setupProfileModals();
   
-  // NOVO: Listener para cancelar a resposta
   replyCancelBtn.onclick = () => cancelReply();
   
   if (resizeHandle) {
@@ -527,7 +516,6 @@ function handleChatInput(text) {
       return; 
     }
     
-    // --- MUDANÇA: Anexa o 'replyContext' ---
     const messageData = { 
         type: 'chat', 
         userId: userId, 
@@ -536,12 +524,10 @@ function handleChatInput(text) {
         text: text 
     };
     
-    // Se houver um contexto de resposta, anexa-o
     if (replyContext) {
       messageData.replyTo = replyContext;
-      cancelReply(); // Limpa o contexto
+      cancelReply();
     }
-    // --- FIM DA MUDANÇA ---
     
     chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: currentRoom, message: messageData });
   }
@@ -624,23 +610,21 @@ function setReplyContext(messageData) {
   const previewText = messageData.text.length > 40 ? messageData.text.substring(0, 40) + '...' : messageData.text;
   
   replyContext = {
-    messageId: messageData.id,
+    // messageId: messageData.id, // ID não é necessário, apenas os dados visuais
     nickname: messageData.nickname,
     rank: messageData.rank,
     text: previewText
   };
   
-  // Atualiza a barra de preview
   replyPreviewBarContent.innerHTML = `Respondendo a <strong>${messageData.nickname}</strong>: <span>${previewText}</span>`;
   replyPreviewBar.style.display = 'block';
-  chatInput.focus(); // Foca no input
+  chatInput.focus();
 }
 function cancelReply() {
   replyContext = null;
   replyPreviewBar.style.display = 'none';
 }
 // --- FIM DAS NOVAS FUNÇÕES ---
-
 
 // --- Rank Style Helper Function ---
 function applyRankStyles(element, rankData) { const defaults = { name: 'USER', color: '#FFFFFF', outline: '#000000', outlineWidth: 1, shine: '#000000', animateShine: false }; const rank = { ...defaults, ...rankData }; element.textContent = `[${rank.name}]`; element.style.color = rank.color; const width = parseInt(rank.outlineWidth); const hasOutline = rank.outline && rank.outline !== '#000000' && width > 0; if (hasOutline) { element.style.webkitTextStrokeWidth = `${width}px`; element.style.webkitTextStrokeColor = rank.outline; } else { element.style.webkitTextStrokeWidth = '0px'; } const hasShine = rank.shine && rank.shine !== '#000000'; if (rank.animateShine && hasShine) { element.classList.add('animated-shine'); element.style.setProperty('--shine-color', rank.shine); element.style.textShadow = 'none'; } else { element.classList.remove('animated-shine'); element.style.animation = 'none'; element.style.removeProperty('--shine-color'); element.style.textShadow = hasShine ? `0 0 8px ${rank.shine}` : 'none'; } }
@@ -718,9 +702,9 @@ window.onload = () => {
 };
 
 function initializePopup() {
-  initialize(); // Sua função de inicialização principal
+  initialize(); 
   
-  if (typeof Coloris === 'function') { 
+  if (typeof Coloris === 'function') { // clitoris
     Coloris({ 
       themeMode: 'dark', 
       alpha: false, 
