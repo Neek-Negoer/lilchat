@@ -124,29 +124,31 @@ body.sidebar-open #main-content { left: 250px; }
 
 /* --- Preview de Encaminhamento (Forward) --- */
 .forward-preview {
-  background-color: #1c1c1c;
-  border-left: 3px solid #28a745; /* Verde */
-  padding: 5px 8px;
-  margin-bottom: 5px;
+  background: #1a1a1a;
+  border-left: 3px solid #555;
+  padding: 5px 10px;
+  margin: 5px 0;
   border-radius: 3px;
-  font-size: 0.9em;
-  opacity: 0.8;
 }
+
 .forward-preview-header {
-  font-style: italic;
-  color: #ccc;
-  margin-bottom: 5px;
-  font-family: Arial, sans-serif;
   font-size: 0.9em;
+  color: #888;
+  margin-bottom: 5px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #333;
 }
+
 .forward-preview .message {
-  padding-right: 0;
-  margin-bottom: 0;
+  padding: 0;
+  margin: 0;
 }
+
 /* Remove o hover da msg interna */
 .forward-preview .message:hover > .message-actions {
   display: none;
 }
+
 .forward-preview .message .nick:hover {
   text-decoration: none;
   cursor: default;
@@ -213,6 +215,67 @@ body.sidebar-open #main-content { left: 250px; }
 /* --- Shine Animation --- */
 @keyframes pulse-shine { 0% { text-shadow: 0 0 16px var(--shine-color, transparent); } 50% { text-shadow: 0 0 4px var(--shine-color, transparent); } 100% { text-shadow: 0 0 16px var(--shine-color, transparent); } }
 .animated-shine { animation: pulse-shine 1.5s infinite; }
+/* --- Forward Modal Styles --- */
+.forward-modal-content {
+  max-width: 400px;
+  min-height: 200px;
+  max-height: 400px;
+}
+
+.search-bar-group {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+}
+
+#forward-search-input {
+  width: 100%;
+  padding: 8px 8px 8px 35px;
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  border-radius: 4px;
+}
+
+#forward-room-list {
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 4px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+#forward-room-list .room-list-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#forward-room-list .room-list-item:last-child {
+  border-bottom: none;
+}
+
+#forward-room-list .room-list-item:hover {
+  background: #222;
+}
+
+.no-rooms {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
 /* --- Rank Browser Styles --- */
 #rank-list { background: #0d0d0d; border: 1px solid #333; min-height: 100px; max-height: 150px; overflow-y: auto; margin-bottom: 10px; }
 .rank-list-item { padding: 8px 10px; border-bottom: 1px solid #222; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-size: 14px; word-wrap: break-word; }

@@ -76,6 +76,12 @@ function initialize() {
   profileViewBio = document.getElementById('profile-view-bio');
   profileDmButton = document.getElementById('profile-dm-button');
   
+  // Forward Modal Elements
+  forwardModal = document.getElementById('forward-modal');
+  forwardModalCloseBtn = document.getElementById('forward-modal-close-btn');
+  forwardSearchInput = document.getElementById('forward-search-input');
+  forwardRoomList = document.getElementById('forward-room-list');
+  
   // REVERTIDO: Atribuições de Reply
   replyPreviewBar = document.getElementById('reply-preview-bar');
   replyPreviewBarContent = document.getElementById('reply-preview-bar-content');
@@ -263,6 +269,72 @@ function showWelcomeHelp() {
 
 // --- UI RENDERING (ATUALIZADO) ---
 function addMessageToLog(messageData) {
+  if (!messageData) return;
+
+  const messageElement = document.createElement('div');
+  messageElement.className = 'message';
+  if (messageData.id) messageElement.dataset.messageId = messageData.id;
+
+  if (messageData.type === 'event') {
+    messageElement.classList.add('system-event');
+    switch (messageData.event) {
+      case 'join':
+        messageElement.textContent = `${messageData.nickname} joined the room`;
+        break;
+      case 'leave':
+        messageElement.textContent = `${messageData.nickname} left the room`;
+        break;
+      case 'forward':
+        messageElement.textContent = `${messageData.nickname} forwarded a message to ${messageData.targetRoom}`;
+        break;
+      default:
+        messageElement.textContent = `Unknown event: ${messageData.event}`;
+    }
+  } else if (messageData.type === 'forward') {
+    // Forward message structure
+    const originalMsg = messageData.originalMessage;
+    messageElement.innerHTML = `
+      <div class="forward-preview">
+        <div class="forward-preview-header">
+          Forwarded by ${messageData.forwardedBy}
+        </div>
+        <div class="message">
+          <span class="nick">${originalMsg.nickname}:</span>
+          <span class="text">${originalMsg.text}</span>
+        </div>
+      </div>
+      <div class="message-actions">
+        <button class="message-action-btn reply-btn" title="Reply">↩️</button>
+        <button class="message-action-btn forward-btn" title="Forward">↪️</button>
+      </div>
+    `;
+    
+    // Apply rank styles if present
+    if (originalMsg.rank) {
+      const nickElement = messageElement.querySelector('.nick');
+      applyRankStyles(nickElement, originalMsg.rank);
+    }
+  } else {
+    // Regular message
+    messageElement.innerHTML = `
+      <span class="nick">${messageData.nickname}:</span>
+      <span class="text">${messageData.text}</span>
+      <div class="message-actions">
+        <button class="message-action-btn reply-btn" title="Reply">↩️</button>
+        <button class="message-action-btn forward-btn" title="Forward">↪️</button>
+      </div>
+    `;
+    
+    // Apply rank styles if present
+    if (messageData.rank) {
+      const nickElement = messageElement.querySelector('.nick');
+      applyRankStyles(nickElement, messageData.rank);
+    }
+  }
+
+  chatLog.appendChild(messageElement);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
   if (!chatLog) return;
   const messageDiv = document.createElement('div');
   messageDiv.classList.add('message');
@@ -486,6 +558,31 @@ function switchRoom(roomName) {
 
 // --- EVENT LISTENERS (ATUALIZADO) ---
 function setupListeners() {
+  setupResizeListeners();
+  setupRankModalListeners();
+  setupProfileModals();
+  
+  // Setup Forward Modal
+  forwardModalCloseBtn.addEventListener('click', () => {
+    forwardModal.classList.add('hidden');
+    messageToForward = null;
+  });
+
+  forwardSearchInput.addEventListener('input', (e) => {
+    renderForwardRoomList(e.target.value.toLowerCase());
+  });
+
+  // Event delegation for forward room list clicks
+  forwardRoomList.addEventListener('click', (e) => {
+    const roomItem = e.target.closest('.room-list-item');
+    if (roomItem && messageToForward) {
+      const targetRoom = roomItem.dataset.room;
+      sendForwardedMessage(targetRoom);
+      forwardModal.classList.add('hidden');
+      messageToForward = null;
+    }
+  });
+}
   chatInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { handleChatInput(chatInput.value.trim()); chatInput.value = ''; event.preventDefault(); } });
   menuToggleBtn.addEventListener('keydown', (event) => { if (event.key === 'Enter') { document.body.classList.toggle('sidebar-open'); }});
   menuToggleBtn.onclick = () => { document.body.classList.toggle('sidebar-open'); };
