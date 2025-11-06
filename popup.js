@@ -6,7 +6,8 @@ let joinedRooms = [];
 let unreadCounts = {};
 let hasSeenHomeTutorial = false;
 let database; 
-let replyContext = null; // NOVO: Guarda o { messageId, nickname, rank, text }
+let replyContext = null; // Revertido para apenas Reply
+let messageToForward = null; // NOVO: Para guardar a msg a encaminhar
 
 // --- Get ALL Elements (DECLARAÇÕES ATUALIZADAS) ---
 let terminal, chatLog, chatInput, rankModal, rankModalCloseBtn, menuToggleBtn, 
@@ -18,8 +19,11 @@ let terminal, chatLog, chatInput, rankModal, rankModalCloseBtn, menuToggleBtn,
     profileEditModal, profileEditCloseBtn, profilePicInput, profileBioInput, profileSaveButton,
     profileViewModal, profileViewCloseBtn, profileViewPic, profileViewName, 
     profileViewRank, profileViewBio, profileDmButton,
-    // NOVOS ELEMENTOS DE RESPOSTA
-    replyPreviewBar, replyPreviewBarContent, replyCancelBtn;
+    // REVERTIDO: Elementos de Reply
+    replyPreviewBar, replyPreviewBarContent, replyCancelBtn,
+    // NOVO: Elementos de Forward
+    forwardModal, forwardModalCloseBtn, forwardSearchInput, forwardRoomList;
+
 
 // --- Rank Browser State ---
 let allPublicRanks = []; let currentPage = 1; const ranksPerPage = 5;
@@ -72,10 +76,16 @@ function initialize() {
   profileViewBio = document.getElementById('profile-view-bio');
   profileDmButton = document.getElementById('profile-dm-button');
   
-  // NOVAS ATRIBUIÇÕES DE RESPOSTA
+  // REVERTIDO: Atribuições de Reply
   replyPreviewBar = document.getElementById('reply-preview-bar');
   replyPreviewBarContent = document.getElementById('reply-preview-bar-content');
   replyCancelBtn = document.getElementById('reply-cancel-btn');
+  
+  // NOVO: Atribuições de Forward
+  forwardModal = document.getElementById('forward-modal');
+  forwardModalCloseBtn = document.getElementById('forward-modal-close-btn');
+  forwardSearchInput = document.getElementById('forward-search-input');
+  forwardRoomList = document.getElementById('forward-room-list');
   
   // --- FIM DAS ATRIBUIÇÕES ---
 
@@ -138,7 +148,7 @@ function initialize() {
   setupListeners();
 }
 
-// --- Funções de Tela (ATUALIZADAS) ---
+// --- Funções de Tela ---
 function showLoginScreen() {
   currentRoom = "login";
   joinedRooms = [];
@@ -179,7 +189,7 @@ function showChatScreen(userInfo, joinedRoomsFromBg = [], messagesFromBg = {}, u
   document.querySelector('.prompt-symbol').textContent = ">";
 }
 
-// --- Tutoriais (ATUALIZADOS) ---
+// --- Tutoriais ---
 function showLoginTutorial() {
   const tutorialMessages = [
     { delay: 500, text: 'Bem-vindo ao LilChat!' },
@@ -227,7 +237,6 @@ function showWelcomeTutorial() {
   });
 }
 
-// --- NOVAS FUNÇÕES: Tutoriais RÁPIDOS (para /help e visitas repetidas) ---
 function showLoginHelp() {
   const messages = [
     'Para se registrar, digite:',
@@ -250,7 +259,6 @@ function showWelcomeHelp() {
   ];
   messages.forEach(msg => addMessageToLog({ type: 'event', event: 'system', text: msg }));
 }
-// --- FIM DAS NOVAS FUNÇÕES ---
 
 
 // --- UI RENDERING (ATUALIZADO) ---
@@ -267,37 +275,63 @@ function addMessageToLog(messageData) {
     else if (messageData.event === 'system') { eventText = messageData.text; }
     messageDiv.textContent = eventText;
   } else {
-    // --- NOVO: Renderiza o preview da resposta ---
+    // Renderiza o preview de Encaminhamento
+    if (messageData.forwardedMessage) {
+      const originalMsg = messageData.forwardedMessage;
+      const forwardPreviewDiv = document.createElement('div');
+      forwardPreviewDiv.classList.add('forward-preview');
+      
+      const forwardHeader = document.createElement('div');
+      forwardHeader.classList.add('forward-preview-header');
+      forwardHeader.innerHTML = '&rarr; Encaminhado';
+      forwardPreviewDiv.appendChild(forwardHeader);
+      
+      const innerMessageDiv = document.createElement('div');
+      innerMessageDiv.classList.add('message');
+      
+      const innerRankSpan = document.createElement('span');
+      innerRankSpan.classList.add('nickname');
+      applyRankStyles(innerRankSpan, originalMsg.rank);
+      
+      const innerNickSpan = document.createElement('span');
+      innerNickSpan.classList.add('nick');
+      innerNickSpan.textContent = ` ${originalMsg.nickname}:`;
+      
+      const innerTextSpan = document.createElement('span');
+      innerTextSpan.classList.add('text');
+      innerTextSpan.textContent = ` ${originalMsg.text}`;
+      
+      innerMessageDiv.appendChild(innerRankSpan);
+      innerMessageDiv.appendChild(innerNickSpan);
+      innerMessageDiv.appendChild(innerTextSpan);
+      forwardPreviewDiv.appendChild(innerMessageDiv);
+      
+      messageDiv.appendChild(forwardPreviewDiv);
+    }
+
+    // Renderiza o preview da Resposta
     if (messageData.replyTo) {
       const reply = messageData.replyTo;
       const replyPreviewDiv = document.createElement('div');
       replyPreviewDiv.classList.add('reply-preview');
       
-      const replyHeader = document.createElement('div');
-      replyHeader.classList.add('reply-preview-header');
-      
-      // Rank e Nick da msg original
       const replyRankSpan = document.createElement('span');
       replyRankSpan.classList.add('nickname');
-      applyRankStyles(replyRankSpan, reply.rank); // Reusa a função de rank
+      applyRankStyles(replyRankSpan, reply.rank);
       
       const replyNickSpan = document.createElement('span');
       replyNickSpan.classList.add('nick');
       replyNickSpan.textContent = ` ${reply.nickname}:`;
       
-      replyHeader.appendChild(replyRankSpan);
-      replyHeader.appendChild(replyNickSpan);
-      
-      // Texto da msg original
-      const replyTextSpan = document.createElement('div');
+      const replyTextSpan = document.createElement('span');
       replyTextSpan.classList.add('reply-preview-text');
-      replyTextSpan.textContent = reply.text;
+      replyTextSpan.textContent = ` ${reply.text}`;
       
-      replyPreviewDiv.appendChild(replyHeader);
+      replyPreviewDiv.appendChild(replyRankSpan);
+      replyPreviewDiv.appendChild(replyNickSpan);
       replyPreviewDiv.appendChild(replyTextSpan);
-      messageDiv.appendChild(replyPreviewDiv); // Adiciona o preview ANTES da msg
+      messageDiv.appendChild(replyPreviewDiv);
     }
-    // --- FIM DO NOVO ---
 
     const rankSpan = document.createElement('span');
     rankSpan.classList.add('nickname');
@@ -331,36 +365,41 @@ function addMessageToLog(messageData) {
     
     const textSpan = document.createElement('span');
     textSpan.classList.add('text');
-    textSpan.textContent = ` ${messageData.text}`;
+    // Se a msg tiver um 'forward', o texto do usuário fica embaixo
+    if (!messageData.forwardedMessage || messageData.text) {
+        textSpan.textContent = ` ${messageData.text}`;
+    } else {
+        textSpan.style.display = 'none'; // Esconde se for só um forward sem comentário
+    }
     
     messageDiv.appendChild(rankSpan);
     messageDiv.appendChild(nickSpan);
     messageDiv.appendChild(textSpan);
     
-    // --- NOVO: Adiciona botões de Ação ---
     const actionsDiv = document.createElement('div');
     actionsDiv.classList.add('message-actions');
     
     const replyBtn = document.createElement('button');
     replyBtn.classList.add('message-action-btn');
-    replyBtn.innerHTML = '&larr;'; // Flecha para esquerda
+    replyBtn.innerHTML = '&larr;';
     replyBtn.title = 'Reply';
     replyBtn.onclick = () => {
-      setReplyContext(messageData); // Chama a nova função
+      setReplyContext(messageData); // Continua usando a função de Reply
     };
     
+    // --- ATUALIZADO: Botão Forward ---
     const forwardBtn = document.createElement('button');
     forwardBtn.classList.add('message-action-btn');
-    forwardBtn.innerHTML = '&rarr;'; // Flecha para direita
+    forwardBtn.innerHTML = '&rarr;';
     forwardBtn.title = 'Forward';
     forwardBtn.onclick = () => {
-      addMessageToLog({ type: 'event', event: 'system', text: 'Forward (em breve!)' });
+      openForwardModal(messageData); // <-- CHAMA A NOVA FUNÇÃO
     };
+    // --- FIM DA ATUALIZAÇÃO ---
     
     actionsDiv.appendChild(replyBtn);
     actionsDiv.appendChild(forwardBtn);
     messageDiv.appendChild(actionsDiv);
-    // --- FIM DO NOVO ---
   }
   
   chatLog.appendChild(messageDiv);
@@ -405,6 +444,8 @@ function switchRoom(roomName) {
     renderRoomList();
   }
   
+  cancelReply();
+  
   currentRoom = roomName;
   let displayName = roomName;
   if (roomName.includes('_&_')) {
@@ -445,7 +486,7 @@ function switchRoom(roomName) {
 
 // --- EVENT LISTENERS (ATUALIZADO) ---
 function setupListeners() {
-  chatInput.addEventListener('keydown', (event) => { if (event.key === 'Enter' && chatInput.value.trim() !== '') { handleChatInput(chatInput.value.trim()); chatInput.value = ''; } });
+  chatInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { handleChatInput(chatInput.value.trim()); chatInput.value = ''; event.preventDefault(); } });
   menuToggleBtn.addEventListener('keydown', (event) => { if (event.key === 'Enter') { document.body.classList.toggle('sidebar-open'); }});
   menuToggleBtn.onclick = () => { document.body.classList.toggle('sidebar-open'); };
   
@@ -462,8 +503,8 @@ function setupListeners() {
   
   setupRankModalListeners();
   setupProfileModals();
+  setupForwardModal(); // <-- NOVO
   
-  // NOVO: Listener para cancelar a resposta
   replyCancelBtn.onclick = () => cancelReply();
   
   if (resizeHandle) {
@@ -471,8 +512,11 @@ function setupListeners() {
   }
 }
 
-// --- COMMAND HANDLER (Atualizado) ---
+// --- COMMAND HANDLER (ATUALIZADO) ---
 function handleChatInput(text) {
+  // --- CORREÇÃO: Bloco `if (messageToForward)` REMOVIDO DAQUI ---
+  // A lógica de envio de forward agora está no `sendForwardedMessage`
+  
   if (currentRoom === 'login') {
     handleLoginCommands(text);
     return;
@@ -502,17 +546,20 @@ function handleChatInput(text) {
   if (text === '/logout') { chrome.runtime.sendMessage({ type: "LOGOUT" }, (response) => { if (response && response.success) { showLoginScreen(); } else { addMessageToLog({ type: 'event', event: 'system', text: `Erro ao deslogar.` }); } }); return; }
   
   if (currentRoom === "home") {
-    const parts = text.split(' '); const command = parts[0]; const subCommand = parts[1]; const roomName = parts[2]; const password = parts[3];
-    if (command === '/room') {
-      if (!subCommand) { addMessageToLog({ type: 'event', event: 'system', text: "Usage: /room <join|create> <name> <password>" }); return; }
-      if (!roomName) { addMessageToLog({ type: 'event', event: 'system', text: `Usage: /room ${subCommand} <name> <password>` }); return; }
-      if (!password) { addMessageToLog({ type: 'event', event: 'system', text: "Password required." }); return; }
-      if (subCommand === 'join') { handleJoinRoom(roomName, password); } 
-      else if (subCommand === 'create') { handleCreateRoom(roomName, password); } 
-      else { addMessageToLog({ type: 'event', event: 'system', text: "Use /room <join|create> ..." }); }
-    } else if (text === '/leave') { addMessageToLog({ type: 'event', event: 'system', text: 'Você não pode sair do /home.' });
-    } else if (text.startsWith('/')) { addMessageToLog({ type: 'event', event: 'system', text: 'Comando desconhecido. Use /help.' });
-    } else { addMessageToLog({ type: 'event', event: 'system', text: "Você está no /home. Use `/room join ...` ou `/help`." }); }
+    if (text.startsWith('/')) {
+        const parts = text.split(' '); const command = parts[0]; const subCommand = parts[1]; const roomName = parts[2]; const password = parts[3];
+        if (command === '/room') {
+          if (!subCommand) { addMessageToLog({ type: 'event', event: 'system', text: "Usage: /room <join|create> <name> <password>" }); return; }
+          if (!roomName) { addMessageToLog({ type: 'event', event: 'system', text: `Usage: /room ${subCommand} <name> <password>` }); return; }
+          if (!password) { addMessageToLog({ type: 'event', event: 'system', text: "Password required." }); return; }
+          if (subCommand === 'join') { handleJoinRoom(roomName, password); } 
+          else if (subCommand === 'create') { handleCreateRoom(roomName, password); } 
+          else { addMessageToLog({ type: 'event', event: 'system', text: "Use /room <join|create> ..." }); }
+        } else if (text === '/leave') { addMessageToLog({ type: 'event', event: 'system', text: 'Você não pode sair do /home.' });
+        } else { addMessageToLog({ type: 'event', event: 'system', text: 'Comando desconhecido. Use /help.' }); }
+    } else {
+        addMessageToLog({ type: 'event', event: 'system', text: "Você está no /home. Use `/room join ...` ou `/help`." }); 
+    }
   } else { 
     if (text === '/leave') { 
       chrome.runtime.sendMessage({ type: "LEAVE_ROOM", roomName: currentRoom }, (response) => { 
@@ -527,23 +574,26 @@ function handleChatInput(text) {
       return; 
     }
     
-    // --- MUDANÇA: Anexa o 'replyContext' ---
-    const messageData = { 
-        type: 'chat', 
-        userId: userId, 
-        nickname: userNickname, 
-        rank: userRank, 
-        text: text 
-    };
-    
-    // Se houver um contexto de resposta, anexa-o
-    if (replyContext) {
-      messageData.replyTo = replyContext;
-      cancelReply(); // Limpa o contexto
+    // Se o texto não estiver vazio, envia a mensagem
+    if (text) {
+        const messageData = { 
+            type: 'chat', 
+            userId: userId, 
+            nickname: userNickname, 
+            rank: userRank, 
+            text: text 
+        };
+        
+        if (replyContext) {
+          messageData.replyTo = replyContext.data;
+          cancelReply();
+        }
+        
+        chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: currentRoom, message: messageData });
+    } else if (replyContext) {
+        // Se o texto estiver vazio MAS for um reply, cancela o reply
+        cancelReply();
     }
-    // --- FIM DA MUDANÇA ---
-    
-    chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: currentRoom, message: messageData });
   }
 }
 
@@ -618,26 +668,120 @@ function handleCreateRoom(roomName, password) {
   });
 }
 
-// --- NOVAS FUNÇÕES: Lógica de Reply ---
+// --- Funções de Reply ---
 function setReplyContext(messageData) {
-  // Limita o texto do preview para não quebrar o layout
   const previewText = messageData.text.length > 40 ? messageData.text.substring(0, 40) + '...' : messageData.text;
   
   replyContext = {
-    messageId: messageData.id,
-    nickname: messageData.nickname,
-    rank: messageData.rank,
-    text: previewText
+    type: 'reply',
+    data: { 
+      nickname: messageData.nickname,
+      rank: messageData.rank,
+      text: previewText
+    }
   };
   
-  // Atualiza a barra de preview
   replyPreviewBarContent.innerHTML = `Respondendo a <strong>${messageData.nickname}</strong>: <span>${previewText}</span>`;
   replyPreviewBar.style.display = 'block';
-  chatInput.focus(); // Foca no input
+  chatInput.focus();
 }
 function cancelReply() {
   replyContext = null;
   replyPreviewBar.style.display = 'none';
+}
+
+// --- NOVAS FUNÇÕES: Lógica de Forward ---
+function setupForwardModal() {
+  forwardModalCloseBtn.onclick = () => {
+    forwardModal.classList.add('hidden');
+    messageToForward = null; // Limpa a msg
+  }
+  
+  forwardSearchInput.oninput = (e) => {
+    renderForwardRoomList(e.target.value.toLowerCase());
+  }
+}
+
+function openForwardModal(messageData) {
+  messageToForward = messageData; // Armazena a msg inteira
+  renderForwardRoomList(); // Renderiza a lista inicial
+  forwardSearchInput.value = ''; // Limpa a busca
+  forwardModal.classList.remove('hidden');
+  forwardSearchInput.focus(); // Foca na busca
+}
+
+function renderForwardRoomList(filter = '') {
+  forwardRoomList.innerHTML = '';
+  const roomsToDisplay = joinedRooms.filter(roomName => {
+    if (roomName === 'home' || roomName === 'login') return false;
+    
+    let displayName = roomName;
+    if (roomName.includes('_&_')) {
+      const names = roomName.split('_&_');
+      const otherUser = names.find(name => userNickname && name.toLowerCase() !== userNickname.toLowerCase());
+      displayName = otherUser ? `@${otherUser}` : "@DM";
+    }
+    
+    return displayName.toLowerCase().includes(filter);
+  });
+  
+  if (roomsToDisplay.length === 0) {
+      forwardRoomList.innerHTML = '<div class="room-list-item">Nenhum chat encontrado.</div>';
+      return;
+  }
+  
+  roomsToDisplay.forEach(roomName => {
+    const item = document.createElement('div');
+    item.classList.add('room-list-item');
+    
+    let displayName = roomName;
+    if (roomName.includes('_&_')) {
+      const names = roomName.split('_&_');
+      const otherUser = names.find(name => userNickname && name.toLowerCase() !== userNickname.toLowerCase());
+      displayName = otherUser ? `@${otherUser}` : "@DM";
+    }
+    
+    item.textContent = displayName;
+    item.dataset.roomName = roomName;
+    
+    item.onclick = () => {
+      sendForwardedMessage(roomName);
+    }
+    
+    forwardRoomList.appendChild(item);
+  });
+}
+
+function sendForwardedMessage(targetRoomName) {
+  if (!messageToForward) return;
+  
+  const originalMessage = {
+      nickname: messageToForward.nickname,
+      rank: messageToForward.rank,
+      text: messageToForward.text,
+      userId: messageToForward.userId
+  };
+
+  // --- CORREÇÃO: Pega o texto do input e limpa ---
+  const commentText = chatInput.value.trim();
+  chatInput.value = ""; // Limpa o input principal
+  // --- FIM DA CORREÇÃO ---
+
+  const messageData = { 
+      type: 'chat', 
+      userId: userId, 
+      nickname: userNickname, 
+      rank: userRank, 
+      text: commentText, // Envia o comentário
+      forwardedMessage: originalMessage 
+  };
+  
+  chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: targetRoomName, message: messageData });
+  
+  forwardModal.classList.add('hidden');
+  messageToForward = null;
+  
+  addMessageToLog({ type: 'event', event: 'system', text: `Mensagem encaminhada para ${targetRoomName}!` });
 }
 // --- FIM DAS NOVAS FUNÇÕES ---
 
@@ -647,7 +791,7 @@ function applyRankStyles(element, rankData) { const defaults = { name: 'USER', c
 // --- updatePreview function ---
 function updatePreview() { const rankData = { name: rankNameInput.value.toUpperCase().substring(0, 4) || 'RANK', color: rankColorInput.value, outline: rankOutlineInput.value, outlineWidth: rankOutlineWidth.value, shine: rankShineInput.value, animateShine: rankAnimateShine.checked }; applyRankStyles(previewSpan, rankData); }
 
-// --- NOVA FUNÇÃO: Listeners dos Modais de Perfil ---
+// --- Listeners dos Modais de Perfil ---
 function setupProfileModals() {
   profileEditCloseBtn.onclick = () => {
     profileEditModal.classList.add('hidden');

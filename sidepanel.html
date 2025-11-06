@@ -21,8 +21,7 @@
       <div id="reply-preview-bar">
         <button id="reply-cancel-btn" title="Cancelar Resposta">&times;</button>
         <div id="reply-preview-bar-content">
-          Respondendo a <strong>User</strong>: <span>Texto da mensagem...</span>
-        </div>
+          </div>
       </div>
       <div id="prompt">
         <span class="prompt-symbol">></span>
@@ -85,6 +84,18 @@
         <p id="profile-view-bio">Este usuário ainda não escreveu uma bio.</p>
       </div>
       <button id="profile-dm-button" data-nickname="">Iniciar DM</button>
+    </div>
+  </div>
+
+  <div id="forward-modal" class="hidden">
+    <div class="modal-content forward-modal-content">
+      <span class="modal-close" id="forward-modal-close-btn">&times;</span>
+      <h2>Encaminhar Para...</h2>
+      <div class="form-group search-bar-group">
+        <span class="search-icon">&#128269;</span> <input type="text" id="forward-search-input" placeholder="Pesquisar chats...">
+      </div>
+      <div id="forward-room-list">
+        </div>
     </div>
   </div>
 
