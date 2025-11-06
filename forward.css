@@ -1,0 +1,141 @@
+/* Forward Modal Styles */
+#forward-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1e1e1e;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid #333;
+}
+
+.forward-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #333;
+}
+
+.forward-header h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 16px;
+}
+
+#forward-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+#forward-close:hover {
+    color: #fff;
+}
+
+.forward-message-preview {
+    padding: 12px 16px;
+    background: #2a2a2a;
+    border-bottom: 1px solid #333;
+}
+
+.preview-label {
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.preview-content {
+    color: #fff;
+    padding: 8px;
+    background: #333;
+    border-radius: 4px;
+    font-size: 14px;
+    word-break: break-word;
+}
+
+.forward-search {
+    padding: 12px 16px;
+    border-bottom: 1px solid #333;
+}
+
+#forward-search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #2a2a2a;
+    color: #fff;
+    font-size: 14px;
+}
+
+#forward-search-input:focus {
+    outline: none;
+    border-color: #007acc;
+}
+
+.rooms-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+    max-height: 300px;
+}
+
+#forward-room-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.room-list-item {
+    padding: 8px 16px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.room-list-item:hover {
+    background: #2a2a2a;
+}
+
+.room-list-item.selected {
+    background: #094771;
+}
+
+.unread-badge {
+    background: #007acc;
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.forward-comment {
+    padding: 12px 16px;
+    border-top: 1px solid #333;
+}
+
+#forward-comment-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background: #2a2a2a;
+    color: #fff;
+    font-size: 14px;
+}
+
+#forward-comment-input:focus {
+    outline: none;
+    border-color: #007acc;
+}

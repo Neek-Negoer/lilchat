@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Forward Message</title>
+    <link rel="stylesheet" href="forward.css">
+</head>
+<body>
+    <div id="forward-container">
+        <div class="forward-header">
+            <h3>Forward Message</h3>
+            <button id="forward-close">&times;</button>
+        </div>
+        
+        <div class="forward-message-preview">
+            <div class="preview-label">Message to forward:</div>
+            <div id="forward-preview" class="preview-content">
+                <!-- Message preview will be inserted here -->
+            </div>
+        </div>
+
+        <div class="forward-search">
+            <input type="text" id="forward-search-input" placeholder="Search rooms...">
+        </div>
+
+        <div class="rooms-container">
+            <div id="forward-room-list">
+                <!-- Room list will be populated here -->
+            </div>
+        </div>
+
+        <div class="forward-comment">
+            <input type="text" id="forward-comment-input" placeholder="Add a comment... (optional)">
+        </div>
+    </div>
+    <script src="forward.js"></script>
+</body>
+</html>

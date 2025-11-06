@@ -279,122 +279,141 @@ function showWelcomeHelp() {
 }
 
 
-// --- UI RENDERING (ATUALIZADO) ---
+// --- UI RENDERING (REFACTORED) ---
 function addMessageToLog(messageData) {
-  if (!messageData || !chatLog) {
-    console.error('Invalid message data or chatLog not found');
-    return;
-  }
-
-  const messageDiv = document.createElement('div');
-  messageDiv.classList.add('message');
-  if (messageData.id) messageDiv.dataset.messageId = messageData.id;
-
-  // System / event messages
-  if (messageData.type === 'event') {
-    messageDiv.classList.add('system-event');
-    let eventText = '';
-    switch (messageData.event) {
-      case 'join': eventText = `${messageData.nickname} joined the room`; break;
-      case 'leave': eventText = `${messageData.nickname} left the room`; break;
-      case 'forward': eventText = `${messageData.nickname} forwarded a message to ${messageData.targetRoom}`; break;
-      case 'system': eventText = messageData.text; break;
-      default: eventText = `Unknown event: ${messageData.event}`;
+    if (!messageData || !chatLog) {
+        console.error('Invalid message data or chatLog not found');
+        return;
     }
-    messageDiv.textContent = eventText;
-    chatLog.appendChild(messageDiv);
-    chatLog.scrollTop = chatLog.scrollHeight;
-    return;
-  }
 
-  // Normalize possible reply payloads
-  const replyObj = messageData.replyTo || messageData.reply || null;
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message');
+    if (messageData.id) messageDiv.dataset.messageId = messageData.id;
 
-  // If there's a reply preview, render it first
-  if (replyObj) {
-    const replyPreviewDiv = document.createElement('div');
-    replyPreviewDiv.classList.add('reply-preview');
-    const replyNickSpan = document.createElement('span');
-    replyNickSpan.classList.add('nick');
-    replyNickSpan.textContent = `${replyObj.nickname}:`;
-    const replyTextSpan = document.createElement('span');
-    replyTextSpan.classList.add('reply-preview-text');
-    replyTextSpan.textContent = ` ${replyObj.text || ''}`;
-    if (replyObj.rank) applyRankStyles(replyNickSpan, replyObj.rank);
-    replyPreviewDiv.appendChild(replyNickSpan);
-    replyPreviewDiv.appendChild(replyTextSpan);
-    messageDiv.appendChild(replyPreviewDiv);
-  }
+    // --- 1. Handle System/Event Messages ---
+    if (messageData.type === 'event') {
+        messageDiv.classList.add('system-event');
+        let eventText = '';
+        switch (messageData.event) {
+            case 'join': eventText = `${messageData.nickname} joined the room`; break;
+            case 'leave': eventText = `${messageData.nickname} left the room`; break;
+            case 'system': eventText = messageData.text; break;
+            default: eventText = messageData.text || `Unknown event: ${messageData.event}`; break;
+        }
+        messageDiv.innerHTML = eventText; // Use innerHTML to render potential formatting
+        chatLog.appendChild(messageDiv);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return;
+    }
 
-  // Forwarded messages: render a forward preview block using originalMessage
-  if (messageData.type === 'forward' && messageData.originalMessage) {
-    const originalMsg = messageData.originalMessage;
-    const forwardPreviewDiv = document.createElement('div');
-    forwardPreviewDiv.classList.add('forward-preview');
-    const forwardHeader = document.createElement('div');
-    forwardHeader.classList.add('forward-preview-header');
-    forwardHeader.textContent = `Forwarded by ${messageData.forwardedBy || messageData.nickname || 'someone'}`;
-    forwardPreviewDiv.appendChild(forwardHeader);
-
-    const innerMessageDiv = document.createElement('div');
-    innerMessageDiv.classList.add('message');
-    const innerNickSpan = document.createElement('span');
-    innerNickSpan.classList.add('nick');
-    innerNickSpan.textContent = `${originalMsg.nickname}:`;
-    const innerTextSpan = document.createElement('span');
-    innerTextSpan.classList.add('text');
-    innerTextSpan.textContent = ` ${originalMsg.text || ''}`;
-    if (originalMsg.rank) applyRankStyles(innerNickSpan, originalMsg.rank);
-    innerMessageDiv.appendChild(innerNickSpan);
-    innerMessageDiv.appendChild(innerTextSpan);
-    forwardPreviewDiv.appendChild(innerMessageDiv);
-    messageDiv.appendChild(forwardPreviewDiv);
-  } else {
-    // Regular chat message: main content
+    // --- 2. Create Main Message Structure ---
     const nickSpan = document.createElement('span');
     nickSpan.classList.add('nick');
     nickSpan.textContent = `${messageData.nickname}:`;
-    const textSpan = document.createElement('span');
-    textSpan.classList.add('text');
-    textSpan.textContent = ` ${messageData.text || ''}`;
-    if (messageData.rank) applyRankStyles(nickSpan, messageData.rank);
-
-    // Profile click handler
+    if (messageData.rank) {
+        applyRankStyles(nickSpan, messageData.rank);
+    }
     if (messageData.nickname && messageData.nickname !== userNickname) {
-      nickSpan.title = `View ${messageData.nickname}'s profile`;
-      nickSpan.style.cursor = 'pointer';
-      nickSpan.onclick = () => {
-        chrome.runtime.sendMessage({ type: "GET_USER_PROFILE", nickname: messageData.nickname }, (response) => {
-          if (response && response.success) {
-            profileViewPic.src = response.profilePicture;
-            profileViewName.textContent = response.nickname;
-            try { applyRankStyles(profileViewRank.querySelector('.nickname'), response.rank); } catch (e) {}
-            profileViewBio.textContent = response.bio;
-            profileDmButton.dataset.nickname = response.nickname;
-            profileViewModal.classList.remove('hidden');
-          }
-        });
-      };
+        nickSpan.title = `View ${messageData.nickname}'s profile`;
+        nickSpan.style.cursor = 'pointer';
+        nickSpan.onclick = () => openUserProfile(messageData.nickname);
+    }
+    messageDiv.appendChild(nickSpan);
+
+    const contentWrapper = document.createElement('div');
+    contentWrapper.classList.add('content-wrapper');
+
+    // --- 3. Handle Forwarded Messages ---
+    if (messageData.isForward && messageData.forwardedFrom) {
+        const fwd = messageData.forwardedFrom;
+        const fwdBlock = document.createElement('div');
+        fwdBlock.classList.add('forward-preview-block');
+        
+        const fwdHeader = document.createElement('div');
+        fwdHeader.classList.add('forward-preview-header');
+        fwdHeader.innerHTML = `&#8618; Forwarded from <strong>${fwd.nickname}</strong>`;
+        
+        const fwdText = document.createElement('div');
+        fwdText.classList.add('forward-preview-text');
+        fwdText.textContent = fwd.text;
+
+        fwdBlock.appendChild(fwdHeader);
+        fwdBlock.appendChild(fwdText);
+        contentWrapper.appendChild(fwdBlock);
     }
 
-    messageDiv.appendChild(nickSpan);
-    messageDiv.appendChild(textSpan);
-  }
+    // --- 4. Handle Replies ---
+    if (messageData.replyTo) {
+        const reply = messageData.replyTo;
+        const replyBlock = document.createElement('div');
+        replyBlock.classList.add('reply-preview');
+        
+        const replyNick = document.createElement('span');
+        replyNick.classList.add('nick');
+        replyNick.textContent = `${reply.nickname}:`;
+        if (reply.rank) {
+            applyRankStyles(replyNick, reply.rank);
+        }
+        
+        const replyText = document.createElement('span');
+        replyText.classList.add('reply-preview-text');
+        replyText.textContent = ` ${reply.text}`;
 
-  // Action buttons (reply / forward) for non-system messages
-  const actionsDiv = document.createElement('div');
-  actionsDiv.classList.add('message-actions');
-  const replyBtn = document.createElement('button');
-  replyBtn.classList.add('message-action-btn', 'reply-btn');
-  replyBtn.innerHTML = '&#8617;'; replyBtn.title = 'Reply'; replyBtn.onclick = () => setReplyContext(messageData);
-  const forwardBtn = document.createElement('button');
-  forwardBtn.classList.add('message-action-btn', 'forward-btn');
-  forwardBtn.innerHTML = '&#8618;'; forwardBtn.title = 'Forward'; forwardBtn.onclick = () => openForwardModal(messageData);
-  actionsDiv.appendChild(replyBtn); actionsDiv.appendChild(forwardBtn);
-  messageDiv.appendChild(actionsDiv);
+        replyBlock.appendChild(replyNick);
+        replyBlock.appendChild(replyText);
+        contentWrapper.appendChild(replyBlock);
+    }
 
-  chatLog.appendChild(messageDiv);
-  chatLog.scrollTop = chatLog.scrollHeight;
+    // --- 5. Add Message Text (Comment or Regular Text) ---
+    if (messageData.text) {
+        const textSpan = document.createElement('span');
+        textSpan.classList.add('text');
+        textSpan.textContent = ` ${messageData.text}`;
+        contentWrapper.appendChild(textSpan);
+    }
+    
+    messageDiv.appendChild(contentWrapper);
+
+    // --- 6. Add Action Buttons ---
+    if (messageData.type !== 'event') {
+        const actionsDiv = document.createElement('div');
+        actionsDiv.classList.add('message-actions');
+        
+        const replyBtn = document.createElement('button');
+        replyBtn.classList.add('message-action-btn', 'reply-btn');
+        replyBtn.innerHTML = '&#8617;';
+        replyBtn.title = 'Reply';
+        replyBtn.onclick = () => setReplyContext(messageData);
+        
+        const forwardBtn = document.createElement('button');
+        forwardBtn.classList.add('message-action-btn', 'forward-btn');
+        forwardBtn.innerHTML = '&#8618;';
+        forwardBtn.title = 'Forward';
+        forwardBtn.onclick = () => openForwardModal(messageData);
+
+        actionsDiv.appendChild(replyBtn);
+        actionsDiv.appendChild(forwardBtn);
+        messageDiv.appendChild(actionsDiv);
+    }
+
+    // --- 7. Append to Chat and Scroll ---
+    chatLog.appendChild(messageDiv);
+    chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function openUserProfile(nickname) {
+  chrome.runtime.sendMessage({ type: "GET_USER_PROFILE", nickname: nickname }, (response) => {
+    if (response && response.success) {
+      profileViewPic.src = response.profilePicture;
+      profileViewName.textContent = response.nickname;
+      // Ensure the rank element is clean before applying new styles
+      profileViewRank.innerHTML = `<span class="nickname"></span>`;
+      applyRankStyles(profileViewRank.querySelector('.nickname'), response.rank);
+      profileViewBio.textContent = response.bio;
+      profileDmButton.dataset.nickname = response.nickname;
+      profileViewModal.classList.remove('hidden');
+    }
+  });
 }
 
 // --- UI Functions ---
@@ -708,167 +727,138 @@ function cancelReply() {
 }
 
 // --- Forward Modal Logic ---
+let forwardFrame = null;
+
 function setupForwardModal() {
-  // Get elements 
-  const modal = document.getElementById('forward-modal');
-  const closeBtn = document.getElementById('forward-modal-close-btn');
-  const searchInput = document.getElementById('forward-search-input');
-  const roomList = document.getElementById('forward-room-list');
+  // Create an iframe for the forward modal if it doesn't exist
+  if (!forwardFrame) {
+    forwardFrame = document.createElement('iframe');
+    forwardFrame.id = 'forward-frame';
+    forwardFrame.src = chrome.runtime.getURL('forward.html');
+    forwardFrame.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 400px;
+      height: 500px;
+      max-width: 90vw;
+      max-height: 90vh;
+      border: none;
+      z-index: 1000;
+      display: none;
+    `;
+    document.body.appendChild(forwardFrame);
 
-  if (!modal || !closeBtn || !searchInput || !roomList) {
-    console.error('Forward modal elements missing:', {
-      modal: !!modal,
-      closeBtn: !!closeBtn,
-      searchInput: !!searchInput,
-      roomList: !!roomList
+    // Listen for messages from the forward modal
+    window.addEventListener('message', (event) => {
+      const { type, data } = event.data;
+      switch (type) {
+        case 'FORWARD_MESSAGE':
+          const { message, targetRoom, comment } = data;
+          sendForwardedMessage(targetRoom, message, comment);
+          break;
+        case 'CLOSE_FORWARD':
+          closeForwardModal();
+          break;
+      }
     });
-    return;
   }
-  
-  // Store references globally
-  forwardModal = modal;
-  forwardModalCloseBtn = closeBtn;
-  forwardSearchInput = searchInput; 
-  forwardRoomList = roomList;
-
-  // Setup close button - using safe event attachment
-  safeAddEventListener(closeBtn, 'click', () => {
-    modal.classList.add('hidden');
-    messageToForward = null;
-  });
-
-  // Close on click outside - using safe event attachment
-  safeAddEventListener(modal, 'click', (e) => {
-    if (e.target === modal) {
-      modal.classList.add('hidden');
-      messageToForward = null;
-    }
-  });
-
-  // Setup search filtering - using safe event attachment
-  safeAddEventListener(searchInput, 'input', (e) => {
-    renderForwardRoomList(e.target.value.toLowerCase());
-  });
-  
-  // Handle room clicks via event delegation
-  roomList.addEventListener('click', (e) => {
-    const roomItem = e.target.closest('.room-list-item');
-    if (!roomItem || !messageToForward) return;
-    
-    const targetRoom = roomItem.dataset.roomName;
-    if (!targetRoom) return;
-    
-    sendForwardedMessage(targetRoom);
-    modal.classList.add('hidden');
-    messageToForward = null;
-  });
 }
 
 function openForwardModal(messageData) {
-  if (!forwardModal) {
-    console.error('Forward modal not found');
+  // Find the full message object from the cache using its ID.
+  // This ensures we have all properties, including the full text.
+  const fullMessage = messageCache[currentRoom]?.find(m => m.id === messageData.id);
+
+  if (!fullMessage) {
+    console.error('Could not find the full message to forward in the cache.');
+    addMessageToLog({ type: 'event', event: 'system', text: 'Error: Could not forward this message.' });
     return;
   }
 
-  console.log('Opening forward modal...');
-  messageToForward = messageData;
-  
-  // Ensure the modal is initialized
-  if (!forwardModal || !forwardSearchInput || !forwardRoomList) {
-    console.error('Forward modal elements missing');
-    return;
+  if (!forwardFrame) {
+    console.error('Forward frame not found');
+    setupForwardModal();
   }
 
-  // Clear and render room list
-  forwardSearchInput.value = '';
-  renderForwardRoomList();
-  
-  // Show modal
-  forwardModal.classList.remove('hidden');
-  forwardSearchInput.focus();
+  // Show the forward modal iframe
+  if (forwardFrame) {
+    forwardFrame.style.display = 'block';
+    
+    // Initialize the forward modal with data
+    forwardFrame.contentWindow.postMessage({
+      type: 'FORWARD_INIT',
+      data: {
+        message: fullMessage, // Use the complete message object
+        rooms: joinedRooms,
+        userNickname: userNickname
+      }
+    }, '*');
+  }
 }
 
-function renderForwardRoomList(filter = '') {
-  if (!forwardRoomList) {
-    console.error('Forward room list element not found');
-    return;
+function closeForwardModal() {
+  if (forwardFrame) {
+    forwardFrame.style.display = 'none';
+    messageToForward = null;
   }
+}
 
-  const roomsToDisplay = joinedRooms
-    // Filter out home and login rooms
-    .filter(roomName => roomName !== 'home' && roomName !== 'login' && roomName !== currentRoom)
-    // Apply search filter
-    .filter(room => {
-      const displayName = room.includes('_&_')
-        ? `@${room.split('_&_').find(name => name !== userNickname) || 'DM'}`
-        : room;
-      return !filter || displayName.toLowerCase().includes(filter);
+// Updated to handle forwarding with comments
+function sendForwardedMessage(targetRoomName, originalMessage, comment = '') {
+    if (!originalMessage) return;
+
+    // If the message is ALREADY a forward, we forward its *original* content.
+    // Otherwise, we create a new `forwardedFrom` block based on the message itself.
+    const forwardContent = originalMessage.isForward && originalMessage.forwardedFrom
+        ? originalMessage.forwardedFrom // Use the existing block
+        : { // Create a new block
+            nickname: originalMessage.nickname,
+            rank: originalMessage.rank,
+            text: originalMessage.text,
+            userId: originalMessage.userId,
+            timestamp: originalMessage.timestamp
+        };
+
+    const messageData = {
+        type: 'chat',
+        nickname: userNickname,
+        rank: userRank,
+        text: comment || '', // User's optional comment
+        isForward: true,
+        forwardedFrom: forwardContent, // Attach the determined content
+        timestamp: Date.now()
+    };
+
+    chrome.runtime.sendMessage({
+        type: "SEND_MESSAGE",
+        roomName: targetRoomName,
+        message: messageData
     });
 
-  if (roomsToDisplay.length === 0) {
-    forwardRoomList.innerHTML = '<div class="room-list-item">No chats available</div>';
-    return;
-  }
-
-  const roomListHTML = roomsToDisplay.map(roomName => {
-    const displayName = roomName.includes('_&_')
-      ? `@${roomName.split('_&_').find(name => name !== userNickname) || 'DM'}`
-      : roomName;
-      
-    const unreadCount = unreadCounts[roomName] || 0;
-    const unreadBadge = unreadCount > 0 
-      ? `<span class="unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>`
-      : '';
-
-    return `
-      <div class="room-list-item" data-room-name="${roomName}">
-        <span class="room-name">${displayName}</span>
-        ${unreadBadge}
-      </div>
-    `;
-  }).join('');
-
-  forwardRoomList.innerHTML = roomListHTML;
+    closeForwardModal();
+    addMessageToLog({
+        type: 'event',
+        event: 'system',
+        text: `Message forwarded to <strong>${targetRoomName}</strong>!`
+    });
 }
 
-function sendForwardedMessage(targetRoomName) {
-  if (!messageToForward) return;
-  
-  const originalMessage = {
-      nickname: messageToForward.nickname,
-      rank: messageToForward.rank,
-      text: messageToForward.text,
-      userId: messageToForward.userId
-  };
-
-  // --- CORREÇÃO: Pega o texto do input e limpa ---
-  const commentText = chatInput.value.trim();
-  chatInput.value = ""; // Limpa o input principal
-  // --- FIM DA CORREÇÃO ---
-
-  const messageData = { 
-      type: 'chat', 
-      userId: userId, 
-      nickname: userNickname, 
-      rank: userRank, 
-      text: commentText, // Envia o comentário
-      forwardedMessage: originalMessage 
-  };
-  
-  chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: targetRoomName, message: messageData });
-  
-  forwardModal.classList.add('hidden');
-  messageToForward = null;
-  
-  addMessageToLog({ type: 'event', event: 'system', text: `Mensagem encaminhada para ${targetRoomName}!` });
-}
 // --- FIM DAS NOVAS FUNÇÕES ---
 
 
 // --- Rank Style Helper Function ---
 function applyRankStyles(element, rankData) { const defaults = { name: 'USER', color: '#FFFFFF', outline: '#000000', outlineWidth: 1, shine: '#000000', animateShine: false }; const rank = { ...defaults, ...rankData }; element.textContent = `[${rank.name}]`; element.style.color = rank.color; const width = parseInt(rank.outlineWidth); const hasOutline = rank.outline && rank.outline !== '#000000' && width > 0; if (hasOutline) { element.style.webkitTextStrokeWidth = `${width}px`; element.style.webkitTextStrokeColor = rank.outline; } else { element.style.webkitTextStrokeWidth = '0px'; } const hasShine = rank.shine && rank.shine !== '#000000'; if (rank.animateShine && hasShine) { element.classList.add('animated-shine'); element.style.setProperty('--shine-color', rank.shine); element.style.textShadow = 'none'; } else { element.classList.remove('animated-shine'); element.style.animation = 'none'; element.style.removeProperty('--shine-color'); element.style.textShadow = hasShine ? `0 0 8px ${rank.shine}` : 'none'; } }
 // --- updatePreview function ---
-function updatePreview() { const rankData = { name: rankNameInput.value.toUpperCase().substring(0, 4) || 'RANK', color: rankColorInput.value, outline: rankOutlineInput.value, outlineWidth: rankOutlineWidth.value, shine: rankShineInput.value, animateShine: rankAnimateShine.checked }; applyRankStyles(previewSpan, rankData); }
+function applyRankStyles(element, rankData) {
+  const defaults = { name: 'USER', color: '#FFFFFF', outline: '#000000', outlineWidth: 1, shine: '#000000', animateShine: false };
+  const rank = { ...defaults, ...rankData };
+  const originalText = element.textContent;
+  const rankSpan = `<span class="rank-span" style="color: ${rank.color}; -webkit-text-stroke: ${parseInt(rank.outlineWidth)}px ${rank.outline}; text-shadow: ${rank.shine && rank.shine !== '#000000' ? `0 0 8px ${rank.shine}` : 'none'};">${`[${rank.name}]`}</span>`;
+  element.innerHTML = `${rankSpan} ${originalText}`;
+}
+function updatePreview() { const rankData = { name: rankNameInput.value.toUpperCase().substring(0, 4) || 'RANK', color: rankColorInput.value, outline: rankOutlineInput.value, outlineWidth: rankOutlineWidth.value, shine: rankShineInput.value, animateShine: rankAnimateShine.checked }; previewNick.textContent = ` ${userNickname}:`; applyRankStyles(previewNick, rankData); }
 
 // --- Listeners dos Modais de Perfil ---
 function setupProfileModals() {
