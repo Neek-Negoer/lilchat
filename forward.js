@@ -71,7 +71,6 @@ function renderPreview() {
 
     elements.preview.innerHTML = `
         <div class="message">
-            <span class="nick">${message.nickname}:</span>
             <span class="text">${textToDisplay}</span>
         </div>
     `;

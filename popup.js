@@ -323,26 +323,7 @@ function addMessageToLog(messageData) {
     const contentWrapper = document.createElement('div');
     contentWrapper.classList.add('content-wrapper');
 
-    // --- 3. Handle Forwarded Messages ---
-    if (messageData.isForward && messageData.forwardedFrom) {
-        const fwd = messageData.forwardedFrom;
-        const fwdBlock = document.createElement('div');
-        fwdBlock.classList.add('forward-preview-block');
-        
-        const fwdHeader = document.createElement('div');
-        fwdHeader.classList.add('forward-preview-header');
-        fwdHeader.innerHTML = `&#8618; Forwarded from <strong>${fwd.nickname}</strong>`;
-        
-        const fwdText = document.createElement('div');
-        fwdText.classList.add('forward-preview-text');
-        fwdText.textContent = fwd.text;
-
-        fwdBlock.appendChild(fwdHeader);
-        fwdBlock.appendChild(fwdText);
-        contentWrapper.appendChild(fwdBlock);
-    }
-
-    // --- 4. Handle Replies ---
+    // --- 3. Handle Replies, Forwards, and Text ---
     if (messageData.replyTo) {
         const reply = messageData.replyTo;
         const replyBlock = document.createElement('div');
@@ -364,7 +345,8 @@ function addMessageToLog(messageData) {
         contentWrapper.appendChild(replyBlock);
     }
 
-    // --- 5. Add Message Text (Comment or Regular Text) ---
+
+
     if (messageData.text) {
         const textSpan = document.createElement('span');
         textSpan.classList.add('text');
@@ -814,20 +796,15 @@ function sendForwardedMessage(targetRoomName, originalMessage, comment = '') {
     const forwardContent = originalMessage.isForward && originalMessage.forwardedFrom
         ? originalMessage.forwardedFrom // Use the existing block
         : { // Create a new block
-            nickname: originalMessage.nickname,
-            rank: originalMessage.rank,
             text: originalMessage.text,
-            userId: originalMessage.userId,
-            timestamp: originalMessage.timestamp
         };
 
     const messageData = {
         type: 'chat',
         nickname: userNickname,
         rank: userRank,
-        text: comment || '', // User's optional comment
+        text: comment ? `${comment}\n\u21AA [Forwarded] ${forwardContent.text}` : `\u21AA [Forwarded] ${forwardContent.text}`,
         isForward: true,
-        forwardedFrom: forwardContent, // Attach the determined content
         timestamp: Date.now()
     };
 
