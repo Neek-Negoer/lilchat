@@ -37,6 +37,9 @@ function initialize() {
   terminal = document.getElementById('terminal'); 
   chatLog = document.getElementById('chat-log'); 
   chatInput = document.getElementById('chat-input'); 
+  
+  // Initialize all modals
+  setupForwardModal(); 
   rankModal = document.getElementById('rank-modal'); 
   rankModalCloseBtn = document.querySelector('#rank-modal .modal-close'); 
   menuToggleBtn = document.getElementById('menu-toggle-btn'); 
@@ -269,70 +272,149 @@ function showWelcomeHelp() {
 
 // --- UI RENDERING (ATUALIZADO) ---
 function addMessageToLog(messageData) {
-  if (!messageData) return;
+  if (!messageData || !chatLog) return;
 
-  const messageElement = document.createElement('div');
-  messageElement.className = 'message';
-  if (messageData.id) messageElement.dataset.messageId = messageData.id;
-
+  const messageDiv = document.createElement('div');
+  messageDiv.classList.add('message');
+  if (messageData.id) messageDiv.dataset.messageId = messageData.id;
+  
   if (messageData.type === 'event') {
-    messageElement.classList.add('system-event');
+    messageDiv.classList.add('system-event');
+    let eventText = '';
     switch (messageData.event) {
       case 'join':
-        messageElement.textContent = `${messageData.nickname} joined the room`;
+        eventText = `${messageData.nickname} joined the room`;
         break;
       case 'leave':
-        messageElement.textContent = `${messageData.nickname} left the room`;
+        eventText = `${messageData.nickname} left the room`;
         break;
       case 'forward':
-        messageElement.textContent = `${messageData.nickname} forwarded a message to ${messageData.targetRoom}`;
+        eventText = `${messageData.nickname} forwarded a message to ${messageData.targetRoom}`;
+        break;
+      case 'system':
+        eventText = messageData.text;
         break;
       default:
-        messageElement.textContent = `Unknown event: ${messageData.event}`;
+        eventText = `Unknown event: ${messageData.event}`;
     }
-  } else if (messageData.type === 'forward') {
-    // Forward message structure
-    const originalMsg = messageData.originalMessage;
-    messageElement.innerHTML = `
-      <div class="forward-preview">
-        <div class="forward-preview-header">
-          Forwarded by ${messageData.forwardedBy}
-        </div>
-        <div class="message">
-          <span class="nick">${originalMsg.nickname}:</span>
-          <span class="text">${originalMsg.text}</span>
-        </div>
-      </div>
-      <div class="message-actions">
-        <button class="message-action-btn reply-btn" title="Reply">↩️</button>
-        <button class="message-action-btn forward-btn" title="Forward">↪️</button>
-      </div>
-    `;
-    
-    // Apply rank styles if present
-    if (originalMsg.rank) {
-      const nickElement = messageElement.querySelector('.nick');
-      applyRankStyles(nickElement, originalMsg.rank);
-    }
+    messageDiv.textContent = eventText;
   } else {
-    // Regular message
-    messageElement.innerHTML = `
-      <span class="nick">${messageData.nickname}:</span>
-      <span class="text">${messageData.text}</span>
-      <div class="message-actions">
-        <button class="message-action-btn reply-btn" title="Reply">↩️</button>
-        <button class="message-action-btn forward-btn" title="Forward">↪️</button>
-      </div>
-    `;
-    
-    // Apply rank styles if present
-    if (messageData.rank) {
-      const nickElement = messageElement.querySelector('.nick');
-      applyRankStyles(nickElement, messageData.rank);
+    // Forward preview if this is a forwarded message
+    if (messageData.type === 'forward') {
+      const originalMsg = messageData.originalMessage;
+      const forwardPreviewDiv = document.createElement('div');
+      forwardPreviewDiv.classList.add('forward-preview');
+      
+      const forwardHeader = document.createElement('div');
+      forwardHeader.classList.add('forward-preview-header');
+      forwardHeader.textContent = `Forwarded by ${messageData.forwardedBy}`;
+      forwardPreviewDiv.appendChild(forwardHeader);
+      
+      const innerMessageDiv = document.createElement('div');
+      innerMessageDiv.classList.add('message');
+      
+      const innerNickSpan = document.createElement('span');
+      innerNickSpan.classList.add('nick');
+      innerNickSpan.textContent = `${originalMsg.nickname}:`;
+      
+      const innerTextSpan = document.createElement('span');
+      innerTextSpan.classList.add('text');
+      innerTextSpan.textContent = ` ${originalMsg.text}`;
+      
+      if (originalMsg.rank) {
+        applyRankStyles(innerNickSpan, originalMsg.rank);
+      }
+      
+      innerMessageDiv.appendChild(innerNickSpan);
+      innerMessageDiv.appendChild(innerTextSpan);
+      forwardPreviewDiv.appendChild(innerMessageDiv);
+      messageDiv.appendChild(forwardPreviewDiv);
     }
-  }
 
-  chatLog.appendChild(messageElement);
+    // Reply preview if this is a reply
+    if (messageData.replyTo) {
+      const reply = messageData.replyTo;
+      const replyPreviewDiv = document.createElement('div');
+      replyPreviewDiv.classList.add('reply-preview');
+      
+      const replyNickSpan = document.createElement('span');
+      replyNickSpan.classList.add('nick');
+      replyNickSpan.textContent = `${reply.nickname}:`;
+      
+      const replyTextSpan = document.createElement('span');
+      replyTextSpan.classList.add('reply-preview-text');
+      replyTextSpan.textContent = ` ${reply.text}`;
+      
+      if (reply.rank) {
+        applyRankStyles(replyNickSpan, reply.rank);
+      }
+      
+      replyPreviewDiv.appendChild(replyNickSpan);
+      replyPreviewDiv.appendChild(replyTextSpan);
+      messageDiv.appendChild(replyPreviewDiv);
+    }
+
+    // Main message content (for both regular and forwarded messages)
+    if (!messageData.type || messageData.type === 'forward') {
+      const nickSpan = document.createElement('span');
+      nickSpan.classList.add('nick');
+      nickSpan.textContent = `${messageData.nickname}:`;
+      
+      const textSpan = document.createElement('span');
+      textSpan.classList.add('text');
+      textSpan.textContent = ` ${messageData.text || ''}`;
+      
+      if (messageData.rank) {
+        applyRankStyles(nickSpan, messageData.rank);
+      }
+      
+      // Add click handler for profile view
+      if (messageData.nickname !== userNickname) {
+        nickSpan.title = `View ${messageData.nickname}'s profile`;
+        nickSpan.style.cursor = 'pointer';
+        nickSpan.onclick = () => {
+          chrome.runtime.sendMessage({ 
+            type: "GET_USER_PROFILE", 
+            nickname: messageData.nickname 
+          }, (response) => {
+            if (response && response.success) {
+              profileViewPic.src = response.profilePicture;
+              profileViewName.textContent = response.nickname;
+              applyRankStyles(profileViewRank.querySelector('.nickname'), response.rank);
+              profileViewBio.textContent = response.bio;
+              profileDmButton.dataset.nickname = response.nickname;
+              profileViewModal.classList.remove('hidden');
+            }
+          });
+        };
+      }
+      
+      messageDiv.appendChild(nickSpan);
+      messageDiv.appendChild(textSpan);
+    }
+    
+    // Add action buttons
+    const actionsDiv = document.createElement('div');
+    actionsDiv.classList.add('message-actions');
+    
+    const replyBtn = document.createElement('button');
+    replyBtn.classList.add('message-action-btn', 'reply-btn');
+    replyBtn.textContent = '↩️';
+    replyBtn.title = 'Reply';
+    replyBtn.onclick = () => setReplyContext(messageData);
+    
+    const forwardBtn = document.createElement('button');
+    forwardBtn.classList.add('message-action-btn', 'forward-btn');
+    forwardBtn.textContent = '↪️';
+    forwardBtn.title = 'Forward';
+    forwardBtn.onclick = () => openForwardModal(messageData);
+    
+    actionsDiv.appendChild(replyBtn);
+    actionsDiv.appendChild(forwardBtn);
+    messageDiv.appendChild(actionsDiv);
+  }
+  
+  chatLog.appendChild(messageDiv);
   chatLog.scrollTop = chatLog.scrollHeight;
 }
   if (!chatLog) return;
