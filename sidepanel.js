@@ -476,6 +476,31 @@ function addMessageToLog(messageData) {
     return;
   }
 
+  // Create message container with profile pic
+  const messageContainer = document.createElement("div");
+  messageContainer.classList.add("message-container");
+
+  // Add profile picture (if available and not a reply)
+  if (messageData.profilePicture && !messageData.replyTo) {
+    const picDiv = document.createElement("div");
+    picDiv.classList.add("message-pic-wrapper");
+    
+    const pic = document.createElement("img");
+    pic.src = messageData.profilePicture;
+    pic.alt = messageData.nickname || "User";
+    pic.classList.add("message-pic");
+    pic.style.cursor = "pointer";
+    pic.onclick = () => openUserProfile(messageData.nickname);
+    
+    picDiv.appendChild(pic);
+    messageContainer.appendChild(picDiv);
+  } else if (!messageData.profilePicture && !messageData.replyTo) {
+    // Add empty space for alignment when no picture
+    const emptyDiv = document.createElement("div");
+    emptyDiv.classList.add("message-pic-wrapper");
+    messageContainer.appendChild(emptyDiv);
+  }
+
   // HEADER: left = name+rank, right = date + time
   const headerDiv = document.createElement("div");
   headerDiv.classList.add("message-header");
@@ -489,8 +514,8 @@ function addMessageToLog(messageData) {
   // apply rank styling (will inject rank badge before name)
   if (messageData.rank) applyRankStyles(nameSpan, messageData.rank);
 
-  // Make nickname clickable (profile) as before
-  if (messageData.nickname && messageData.nickname !== userNickname) {
+  // Make nickname clickable (profile) - for both other users and yourself
+  if (messageData.nickname) {
     nameSpan.title = `View ${messageData.nickname}'s profile`;
     nameSpan.style.cursor = "pointer";
     nameSpan.onclick = () => openUserProfile(messageData.nickname);
@@ -572,7 +597,14 @@ function addMessageToLog(messageData) {
     messageDiv.appendChild(actionsDiv);
   }
 
-  chatLog.appendChild(messageDiv);
+  // Append message with container if it has profile pic or is not a reply
+  if (!messageData.replyTo) {
+    messageContainer.appendChild(messageDiv);
+    chatLog.appendChild(messageContainer);
+  } else {
+    chatLog.appendChild(messageDiv);
+  }
+  
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
@@ -583,6 +615,8 @@ function openUserProfile(nickname) {
     (response) => {
       if (response && response.success) {
         profileViewPic.src = response.profilePicture;
+        profileViewPic.style.cursor = "pointer";
+        profileViewPic.onclick = () => openProfilePicModal(response.profilePicture);
         profileViewName.textContent = response.nickname;
         profileViewRank.innerHTML = `<span class="nickname"></span>`;
         applyRankStyles(
@@ -590,11 +624,34 @@ function openUserProfile(nickname) {
           response.rank
         );
         profileViewBio.textContent = response.bio;
-        profileDmButton.dataset.nickname = response.nickname;
+        // Hide DM button if viewing own profile
+        if (response.nickname === userNickname) {
+          profileDmButton.style.display = "none";
+        } else {
+          profileDmButton.style.display = "block";
+          profileDmButton.dataset.nickname = response.nickname;
+        }
         profileViewModal.classList.remove("hidden");
       }
     }
   );
+}
+
+// --- PROFILE PIC ENLARGEMENT MODAL ---
+function openProfilePicModal(imageUrl) {
+  const modal = document.getElementById("profile-pic-modal");
+  const modalImg = document.getElementById("profile-pic-modal-img");
+  if (modal && modalImg) {
+    modalImg.src = imageUrl;
+    modal.classList.remove("hidden");
+  }
+}
+
+function closeProfilePicModal() {
+  const modal = document.getElementById("profile-pic-modal");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
 }
 
 // --- ROOM LIST & SWITCH ---
@@ -882,6 +939,7 @@ function handleChatInput(text) {
     nickname: userNickname,
     rank: userRank,
     text: text,
+    profilePicture: userProfilePicture,
     timestamp: Date.now(),
   };
 
@@ -1284,6 +1342,24 @@ function setupProfileModals() {
   if (profileViewCloseBtn)
     profileViewCloseBtn.onclick = () =>
       profileViewModal.classList.add("hidden");
+
+  // Profile picture modal listeners
+  const profilePicModalCloseBtn = document.getElementById("profile-pic-modal-close-btn");
+  const profilePicModal = document.getElementById("profile-pic-modal");
+  const profilePicModalOverlay = document.getElementById("profile-pic-modal-overlay");
+  
+  if (profilePicModalCloseBtn) {
+    profilePicModalCloseBtn.onclick = closeProfilePicModal;
+  }
+  
+  if (profilePicModalOverlay) {
+    profilePicModalOverlay.onclick = (e) => {
+      // Only close if clicking on the overlay, not on the image
+      if (e.target === profilePicModalOverlay) {
+        closeProfilePicModal();
+      }
+    };
+  }
 
   if (profileSaveButton)
     profileSaveButton.onclick = () => {
