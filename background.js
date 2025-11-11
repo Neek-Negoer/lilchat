@@ -453,3 +453,18 @@ function initialize() {
 }
 
 initialize();
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+  if (!tab.url) return;
+  const url = new URL(tab.url);
+  // Enables the side panel on any page
+  await chrome.sidePanel.setOptions({
+    tabId,
+    path: 'sidepanel.html',
+    enabled: true
+  });
+});

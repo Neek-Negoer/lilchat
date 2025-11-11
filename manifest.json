@@ -3,9 +3,7 @@
   "name": "LilChat",
   "version": "0.6.0",
   "description": "Um chat persistente em popup ou sidebar.",
-  "action": {
-    "default_popup": "popup.html"
-  },
+  "action": {},
   "permissions": [
     "storage",
     "alarms",
@@ -22,9 +20,8 @@
     {
       "resources": [
         "sidepanel.html",
-        "popup.html",
-        "popup.css",
-        "popup.js",
+        "sidepanel.css",
+        "sidepanel.js",
         "forward.html",
         "forward.css",
         "forward.js",
