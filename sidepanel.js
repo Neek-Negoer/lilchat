@@ -1069,7 +1069,28 @@ function setReplyContext(messageData) {
     },
   };
   if (replyPreviewBarContent) {
-    replyPreviewBarContent.innerHTML = `Respondendo a <strong>${messageData.nickname}</strong>: <span>${previewText}</span>`;
+    // Clear the content first
+    replyPreviewBarContent.innerHTML = "";
+    
+    // Create a span for the nickname
+    const nicknameSpan = document.createElement("span");
+    nicknameSpan.classList.add("nick");
+    nicknameSpan.textContent = messageData.nickname;
+    
+    // Apply rank styling to the nickname
+    if (messageData.rank) {
+      applyRankStyles(nicknameSpan, messageData.rank);
+    }
+    
+    // Create the text content
+    const textSpan = document.createElement("span");
+    textSpan.textContent = `: ${previewText}`;
+    
+    // Append everything
+    replyPreviewBarContent.appendChild(document.createTextNode("Respondendo a "));
+    replyPreviewBarContent.appendChild(nicknameSpan);
+    replyPreviewBarContent.appendChild(textSpan);
+    
     replyPreviewBar.style.display = "block";
   }
   if (chatInput) chatInput.focus();

@@ -454,17 +454,21 @@ function initialize() {
 
 initialize();
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  // Enable the side panel on all existing tabs
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id) {
+      await chrome.sidePanel.setOptions({
+        tabId: tab.id,
+        path: 'sidepanel.html',
+        enabled: true
+      });
+    }
+  }
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
-  if (!tab.url) return;
-  const url = new URL(tab.url);
-  // Enables the side panel on any page
-  await chrome.sidePanel.setOptions({
-    tabId,
-    path: 'sidepanel.html',
-    enabled: true
-  });
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ tabId: tab.id });
 });
