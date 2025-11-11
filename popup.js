@@ -1,3 +1,6 @@
+// Full popup.js updated: timestamp parts, Discord-like message layout, reply/forward, rank preview, resize, init.
+
+
 // --- Helper Functions ---
 function safeAddEventListener(element, eventType, handler) {
   if (element && typeof element.addEventListener === 'function') {
@@ -9,78 +12,98 @@ function safeAddEventListener(element, eventType, handler) {
   }
 }
 
+// Retorna {date, time} sem segundos (formato DD/MM/YYYY e HH:MM)
+function formatTimestampParts(ts) {
+  try {
+    const d = ts ? new Date(ts) : new Date();
+    const date = d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' }); // ex: 06/11/2025
+    const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); // ex: 19:34
+    return { date, time };
+  } catch (e) {
+    return { date: '', time: '' };
+  }
+}
+
+// Compatibilidade: string com data + hora (sem segundos)
+function formatTimestamp(ts) {
+  const p = formatTimestampParts(ts);
+  if (!p.date && !p.time) return '';
+  return `${p.date} ${p.time}`;
+}
+
 // --- GLOBAL STATE ---
-let userNickname = null; let userId = null; let userRank = null;
-let userBio = ""; let userProfilePicture = "";
-let currentRoom = "login"; let messageCache = { "login": [], "home": [] };
+let userNickname = null;
+let userId = null;
+let userRank = null;
+let userBio = "";
+let userProfilePicture = "";
+let currentRoom = "login";
+let messageCache = { "login": [], "home": [] };
 let joinedRooms = [];
 let unreadCounts = {};
 let hasSeenHomeTutorial = false;
-let database; 
-let replyContext = null; // Revertido para apenas Reply
-let messageToForward = null; // NOVO: Para guardar a msg a encaminhar
+let database;
+let replyContext = null;
+let messageToForward = null;
 
-// --- Get ALL Elements (DECLARAÇÕES ATUALIZADAS) ---
-let terminal, chatLog, chatInput, rankModal, rankModalCloseBtn, menuToggleBtn, 
-    sidebar, mainContent, roomListDiv, currentRoomTitle, resizeHandle, undockBtn,
-    createTabBtn, browseTabBtn, createTab, browseTab, rankNameInput, rankColorInput,
-    rankOutlineInput, rankOutlineWidth, rankShineInput, rankAnimateShine, 
-    previewSpan, previewNick, saveRankButton, rankListDivBrowse, prevPageBtn, 
-    nextPageBtn, pageIndicator,
-    profileEditModal, profileEditCloseBtn, profilePicInput, profileBioInput, profileSaveButton,
-    profileViewModal, profileViewCloseBtn, profileViewPic, profileViewName, 
-    profileViewRank, profileViewBio, profileDmButton,
-    // REVERTIDO: Elementos de Reply
-    replyPreviewBar, replyPreviewBarContent, replyCancelBtn,
-    // NOVO: Elementos de Forward
-    forwardModal, forwardModalCloseBtn, forwardSearchInput, forwardRoomList;
+// --- ELEMENT REFS ---
+let terminal, chatLog, chatInput, rankModal, rankModalCloseBtn, menuToggleBtn,
+  sidebar, mainContent, roomListDiv, currentRoomTitle, resizeHandle, undockBtn,
+  createTabBtn, browseTabBtn, createTab, browseTab, rankNameInput, rankColorInput,
+  rankOutlineInput, rankOutlineWidth, rankShineInput, rankAnimateShine,
+  previewSpan, previewNick, saveRankButton, rankListDivBrowse, prevPageBtn,
+  nextPageBtn, pageIndicator,
+  profileEditModal, profileEditCloseBtn, profilePicInput, profileBioInput, profileSaveButton,
+  profileViewModal, profileViewCloseBtn, profileViewPic, profileViewName,
+  profileViewRank, profileViewBio, profileDmButton,
+  replyPreviewBar, replyPreviewBarContent, replyCancelBtn,
+  forwardModal, forwardModalCloseBtn, forwardSearchInput, forwardRoomList;
 
+// --- Rank Browser State & Resize ---
+let allPublicRanks = [];
+let currentPage = 1;
+const ranksPerPage = 5;
 
-// --- Rank Browser State ---
-let allPublicRanks = []; let currentPage = 1; const ranksPerPage = 5;
-// --- Resize State ---
-let isResizing = false; let startX, startY, startWidth, startHeight; const MIN_WIDTH = 300; const MIN_HEIGHT = 200; const MAX_WIDTH = 800; const MAX_HEIGHT = 600;
+let isResizing = false;
+let startX, startY, startWidth, startHeight;
+const MIN_WIDTH = 300, MIN_HEIGHT = 200, MAX_WIDTH = 800, MAX_HEIGHT = 600;
 
-// --- INITIALIZATION (ATUALIZADO) ---
+// --- INITIALIZATION ---
 function initialize() {
-  
-  // --- ATRIBUIÇÕES DOS ELEMENTOS ---
-  terminal = document.getElementById('terminal'); 
-  chatLog = document.getElementById('chat-log'); 
-  chatInput = document.getElementById('chat-input'); 
-  
-  // Forward Modal Elements
+  terminal = document.getElementById('terminal');
+  chatLog = document.getElementById('chat-log');
+  chatInput = document.getElementById('chat-input');
+
   forwardModal = document.getElementById('forward-modal');
   forwardModalCloseBtn = document.getElementById('forward-modal-close-btn');
   forwardSearchInput = document.getElementById('forward-search-input');
   forwardRoomList = document.getElementById('forward-room-list');
-  
-  // Other Modals
-  rankModal = document.getElementById('rank-modal'); 
-  rankModalCloseBtn = document.querySelector('#rank-modal .modal-close'); 
-  menuToggleBtn = document.getElementById('menu-toggle-btn'); 
-  sidebar = document.getElementById('sidebar'); 
-  mainContent = document.getElementById('main-content'); 
-  roomListDiv = document.getElementById('room-list'); 
-  currentRoomTitle = document.getElementById('current-room-title'); 
-  resizeHandle = document.getElementById('resize-handle'); 
+
+  rankModal = document.getElementById('rank-modal');
+  rankModalCloseBtn = document.querySelector('#rank-modal .modal-close');
+  menuToggleBtn = document.getElementById('menu-toggle-btn');
+  sidebar = document.getElementById('sidebar');
+  mainContent = document.getElementById('main-content');
+  roomListDiv = document.getElementById('room-list');
+  currentRoomTitle = document.getElementById('current-room-title');
+  resizeHandle = document.getElementById('resize-handle');
   undockBtn = document.getElementById('undock-btn');
-  createTabBtn = document.getElementById('create-tab-btn'); 
-  browseTabBtn = document.getElementById('browse-tab-btn'); 
-  createTab = document.getElementById('create-tab'); 
-  browseTab = document.getElementById('browse-tab'); 
-  rankNameInput = document.getElementById('rank-name-input'); 
-  rankColorInput = document.getElementById('rank-color-input'); 
-  rankOutlineInput = document.getElementById('rank-outline-input'); 
-  rankOutlineWidth = document.getElementById('rank-outline-width'); 
-  rankShineInput = document.getElementById('rank-shine-input'); 
-  rankAnimateShine = document.getElementById('rank-animate-shine'); 
-  previewSpan = document.querySelector('.rank-preview-span'); 
-  previewNick = document.getElementById('rank-preview-nick'); 
-  saveRankButton = document.getElementById('save-rank-button'); 
-  rankListDivBrowse = document.getElementById('rank-list'); 
-  prevPageBtn = document.getElementById('prev-page-btn'); 
-  nextPageBtn = document.getElementById('next-page-btn'); 
+  createTabBtn = document.getElementById('create-tab-btn');
+  browseTabBtn = document.getElementById('browse-tab-btn');
+  createTab = document.getElementById('create-tab');
+  browseTab = document.getElementById('browse-tab');
+  rankNameInput = document.getElementById('rank-name-input');
+  rankColorInput = document.getElementById('rank-color-input');
+  rankOutlineInput = document.getElementById('rank-outline-input');
+  rankOutlineWidth = document.getElementById('rank-outline-width');
+  rankShineInput = document.getElementById('rank-shine-input');
+  rankAnimateShine = document.getElementById('rank-animate-shine');
+  previewSpan = document.querySelector('.rank-preview-span');
+  previewNick = document.getElementById('rank-preview-nick');
+  saveRankButton = document.getElementById('save-rank-button');
+  rankListDivBrowse = document.getElementById('rank-list');
+  prevPageBtn = document.getElementById('prev-page-btn');
+  nextPageBtn = document.getElementById('next-page-btn');
   pageIndicator = document.getElementById('page-indicator');
   profileEditModal = document.getElementById('profile-edit-modal');
   profileEditCloseBtn = document.getElementById('profile-edit-close-btn');
@@ -94,19 +117,13 @@ function initialize() {
   profileViewRank = document.getElementById('profile-view-rank');
   profileViewBio = document.getElementById('profile-view-bio');
   profileDmButton = document.getElementById('profile-dm-button');
-  
-  // (Forward modal elements are initialized once earlier in this function)
-  
-  // Reply Elements
+
   replyPreviewBar = document.getElementById('reply-preview-bar');
   replyPreviewBarContent = document.getElementById('reply-preview-bar-content');
   replyCancelBtn = document.getElementById('reply-cancel-btn');
-  
-  // --- FIM DAS ATRIBUIÇÕES ---
 
-  // Initialize all modals after elements are set up
   setupForwardModal();
-  
+
   try {
     if (!firebase.apps.length) {
       const firebaseConfig = {
@@ -128,14 +145,20 @@ function initialize() {
   }
 
   chrome.storage.sync.get(['popupWidth', 'popupHeight'], (result) => {
-      if (document.body.classList.contains('is-popup')) {
-          applySize(result.popupWidth || 723, result.popupHeight || 360);
-      }
+    if (document.body.classList.contains('is-popup')) {
+      applySize(result.popupWidth || 723, result.popupHeight || 360);
+    }
   });
-  
+
   chrome.runtime.sendMessage({ type: "GET_ALL_DATA" }, (response) => {
-    if (chrome.runtime.lastError) { chatLog.innerHTML = `<div class="message system-event">Error loading data: ${chrome.runtime.lastError.message}</div>`; return; }
-    if (!response || !response.userInfo) { chatLog.innerHTML = '<div class="message system-event">Error loading data. Invalid response.</div>'; return; }
+    if (chrome.runtime.lastError) {
+      chatLog.innerHTML = `<div class="message system-event">Error loading data: ${chrome.runtime.lastError.message}</div>`;
+      return;
+    }
+    if (!response || !response.userInfo) {
+      chatLog.innerHTML = '<div class="message system-event">Error loading data. Invalid response.</div>';
+      return;
+    }
     messageCache = { "login": [], "home": [], ...response.messages };
     unreadCounts = response.unreadCounts || {};
     if (response.userInfo.nickname) {
@@ -150,35 +173,36 @@ function initialize() {
       const { roomName, message } = request;
       if (!messageCache[roomName]) { messageCache[roomName] = []; }
       if (message.id && !messageCache[roomName].some(m => m.id === message.id)) {
-          messageCache[roomName].push(message);
-          if (roomName === currentRoom) {
-            addMessageToLog(message);
-          } else {
-            if (message.nickname !== userNickname) {
-              unreadCounts[roomName] = (unreadCounts[roomName] || 0) + 1;
-              renderRoomList();
-            }
+        messageCache[roomName].push(message);
+        if (roomName === currentRoom) {
+          addMessageToLog(message);
+        } else {
+          if (message.nickname !== userNickname) {
+            unreadCounts[roomName] = (unreadCounts[roomName] || 0) + 1;
+            renderRoomList();
           }
+        }
       }
     }
   });
-  
+
   setupListeners();
 }
 
-// --- Funções de Tela ---
+// --- UI & Screens ---
 function showLoginScreen() {
   currentRoom = "login";
   joinedRooms = [];
   messageCache["login"] = [];
   unreadCounts = {};
   hasSeenHomeTutorial = false;
-  currentRoomTitle.textContent = "Login";
+  if (currentRoomTitle) currentRoomTitle.textContent = "Login";
   if (menuToggleBtn) menuToggleBtn.style.display = 'none';
   if (undockBtn) undockBtn.style.display = 'none';
   renderRoomList();
   switchRoom("login");
-  document.querySelector('.prompt-symbol').textContent = "/login >";
+  const ps = document.querySelector('.prompt-symbol');
+  if (ps) ps.textContent = "/login >";
 }
 
 function showChatScreen(userInfo, joinedRoomsFromBg = [], messagesFromBg = {}, unreadCountsFromBg = {}) {
@@ -187,27 +211,28 @@ function showChatScreen(userInfo, joinedRoomsFromBg = [], messagesFromBg = {}, u
   userId = userInfo.userId;
   userBio = userInfo.bio || "";
   userProfilePicture = userInfo.profilePicture || "";
-  
+
   messageCache = { "login": [], "home": [], ...messagesFromBg };
   joinedRooms = ["home", ...joinedRoomsFromBg];
   unreadCounts = unreadCountsFromBg;
-  
+
   if (menuToggleBtn) menuToggleBtn.style.display = 'block';
   if (undockBtn) undockBtn.style.display = 'block';
 
   renderRoomList();
-  
+
   chrome.storage.local.get(['lastActiveRoom'], (result) => {
-      if (result.lastActiveRoom && joinedRooms.includes(result.lastActiveRoom) && result.lastActiveRoom !== 'login') {
-          switchRoom(result.lastActiveRoom);
-      } else {
-          switchRoom("home");
-      }
+    if (result.lastActiveRoom && joinedRooms.includes(result.lastActiveRoom) && result.lastActiveRoom !== 'login') {
+      switchRoom(result.lastActiveRoom);
+    } else {
+      switchRoom("home");
+    }
   });
-  document.querySelector('.prompt-symbol').textContent = ">";
+  const ps = document.querySelector('.prompt-symbol');
+  if (ps) ps.textContent = ">";
 }
 
-// --- Tutoriais ---
+// --- Tutorials & Help ---
 function showLoginTutorial() {
   const tutorialMessages = [
     { delay: 500, text: 'Bem-vindo ao LilChat!' },
@@ -222,15 +247,16 @@ function showLoginTutorial() {
       if (currentRoom === 'login') {
         const logMsg = { type: 'event', event: 'system', text: msg.text, timestamp: Date.now() + msg.delay };
         if (!messageCache["login"].some(m => m.text === msg.text)) {
-            messageCache["login"].push(logMsg);
-            addMessageToLog(logMsg);
+          messageCache["login"].push(logMsg);
+          addMessageToLog(logMsg);
         }
       }
     }, msg.delay);
   });
 }
+
 function showWelcomeTutorial() {
-   const tutorialMessages = [
+  const tutorialMessages = [
     { delay: 500, text: `Logado como: ${userNickname}` },
     { delay: 1000, text: 'Comandos:' },
     { delay: 1500, text: '`/room join <n> <p>` - Entra em uma sala.' },
@@ -243,12 +269,12 @@ function showWelcomeTutorial() {
   ];
   tutorialMessages.forEach(msg => {
     setTimeout(() => {
-      if(currentRoom === 'home') {
+      if (currentRoom === 'home') {
         const logMsg = { type: 'event', event: 'system', text: msg.text, timestamp: Date.now() + msg.delay };
         if (!messageCache["home"]) { messageCache["home"] = []; }
         if (!messageCache["home"].some(m => m.text === msg.text && m.type === 'event')) {
-            messageCache["home"].push(logMsg);
-            addMessageToLog(logMsg);
+          messageCache["home"].push(logMsg);
+          addMessageToLog(logMsg);
         }
       }
     }, msg.delay);
@@ -264,6 +290,7 @@ function showLoginHelp() {
   ];
   messages.forEach(msg => addMessageToLog({ type: 'event', event: 'system', text: msg }));
 }
+
 function showWelcomeHelp() {
   const messages = [
     `Logado como: ${userNickname}`,
@@ -273,122 +300,144 @@ function showWelcomeHelp() {
     '`/profile` - Edita seu perfil (bio/foto).',
     '`/rank` - Abre o customizador de rank.',
     '`/leave` - Sai da sala atual.',
-    '`/logout` - Desloga da sua conta.'
+    '`/logout` - Desloga sua conta.'
   ];
   messages.forEach(msg => addMessageToLog({ type: 'event', event: 'system', text: msg }));
 }
 
-
-// --- UI RENDERING (REFACTORED) ---
+// --- UI RENDERING ---
 function addMessageToLog(messageData) {
-    if (!messageData || !chatLog) {
-        console.error('Invalid message data or chatLog not found');
-        return;
+  if (!messageData || !chatLog) {
+    console.error('Invalid message data or chatLog not found');
+    return;
+  }
+
+  const messageDiv = document.createElement('div');
+  messageDiv.classList.add('message');
+  if (messageData.id) messageDiv.dataset.messageId = messageData.id;
+
+  // System / event messages keep existing behavior
+  if (messageData.type === 'event') {
+    messageDiv.classList.add('system-event');
+    let eventText = '';
+    switch (messageData.event) {
+      case 'join': eventText = `${messageData.nickname} joined the room`; break;
+      case 'leave': eventText = `${messageData.nickname} left the room`; break;
+      case 'system': eventText = messageData.text; break;
+      default: eventText = messageData.text || `Unknown event: ${messageData.event}`; break;
     }
-
-    const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message');
-    if (messageData.id) messageDiv.dataset.messageId = messageData.id;
-
-    // --- 1. Handle System/Event Messages ---
-    if (messageData.type === 'event') {
-        messageDiv.classList.add('system-event');
-        let eventText = '';
-        switch (messageData.event) {
-            case 'join': eventText = `${messageData.nickname} joined the room`; break;
-            case 'leave': eventText = `${messageData.nickname} left the room`; break;
-            case 'system': eventText = messageData.text; break;
-            default: eventText = messageData.text || `Unknown event: ${messageData.event}`; break;
-        }
-        messageDiv.innerHTML = eventText; // Use innerHTML to render potential formatting
-        chatLog.appendChild(messageDiv);
-        chatLog.scrollTop = chatLog.scrollHeight;
-        return;
-    }
-
-    // --- 2. Create Main Message Structure ---
-    const nickSpan = document.createElement('span');
-    nickSpan.classList.add('nick');
-    nickSpan.textContent = `${messageData.nickname}:`;
-    if (messageData.rank) {
-        applyRankStyles(nickSpan, messageData.rank);
-    }
-    if (messageData.nickname && messageData.nickname !== userNickname) {
-        nickSpan.title = `View ${messageData.nickname}'s profile`;
-        nickSpan.style.cursor = 'pointer';
-        nickSpan.onclick = () => openUserProfile(messageData.nickname);
-    }
-    messageDiv.appendChild(nickSpan);
-
-    const contentWrapper = document.createElement('div');
-    contentWrapper.classList.add('content-wrapper');
-
-    // --- 3. Handle Replies, Forwards, and Text ---
-    if (messageData.replyTo) {
-        const reply = messageData.replyTo;
-        const replyBlock = document.createElement('div');
-        replyBlock.classList.add('reply-preview');
-        
-        const replyNick = document.createElement('span');
-        replyNick.classList.add('nick');
-        replyNick.textContent = `${reply.nickname}:`;
-        if (reply.rank) {
-            applyRankStyles(replyNick, reply.rank);
-        }
-        
-        const replyText = document.createElement('span');
-        replyText.classList.add('reply-preview-text');
-        replyText.textContent = ` ${reply.text}`;
-
-        replyBlock.appendChild(replyNick);
-        replyBlock.appendChild(replyText);
-        contentWrapper.appendChild(replyBlock);
-    }
-
-
-
-    if (messageData.text) {
-        const textSpan = document.createElement('span');
-        textSpan.classList.add('text');
-        textSpan.textContent = ` ${messageData.text}`;
-        contentWrapper.appendChild(textSpan);
-    }
-    
-    messageDiv.appendChild(contentWrapper);
-
-    // --- 6. Add Action Buttons ---
-    if (messageData.type !== 'event') {
-        const actionsDiv = document.createElement('div');
-        actionsDiv.classList.add('message-actions');
-        
-        const replyBtn = document.createElement('button');
-        replyBtn.classList.add('message-action-btn', 'reply-btn');
-        replyBtn.innerHTML = '&#8617;';
-        replyBtn.title = 'Reply';
-        replyBtn.onclick = () => setReplyContext(messageData);
-        
-        const forwardBtn = document.createElement('button');
-        forwardBtn.classList.add('message-action-btn', 'forward-btn');
-        forwardBtn.innerHTML = '&#8618;';
-        forwardBtn.title = 'Forward';
-        forwardBtn.onclick = () => openForwardModal(messageData);
-
-        actionsDiv.appendChild(replyBtn);
-        actionsDiv.appendChild(forwardBtn);
-        messageDiv.appendChild(actionsDiv);
-    }
-
-    // --- 7. Append to Chat and Scroll ---
+    messageDiv.innerHTML = eventText;
     chatLog.appendChild(messageDiv);
     chatLog.scrollTop = chatLog.scrollHeight;
+    return;
+  }
+
+  // HEADER: left = name+rank, right = date + time
+  const headerDiv = document.createElement('div');
+  headerDiv.classList.add('message-header');
+
+  const headerLeft = document.createElement('div');
+  headerLeft.classList.add('message-header-left');
+
+  const nameSpan = document.createElement('span');
+  nameSpan.classList.add('nick');
+  nameSpan.textContent = messageData.nickname || 'Unknown';
+  // apply rank styling (will inject rank badge before name)
+  if (messageData.rank) applyRankStyles(nameSpan, messageData.rank);
+
+  // Make nickname clickable (profile) as before
+  if (messageData.nickname && messageData.nickname !== userNickname) {
+    nameSpan.title = `View ${messageData.nickname}'s profile`;
+    nameSpan.style.cursor = 'pointer';
+    nameSpan.onclick = () => openUserProfile(messageData.nickname);
+  }
+
+  headerLeft.appendChild(nameSpan);
+  headerDiv.appendChild(headerLeft);
+
+  const tsParts = formatTimestampParts(messageData.timestamp);
+  const headerRight = document.createElement('div');
+  headerRight.classList.add('message-header-right');
+
+  const dateSpan = document.createElement('span');
+  dateSpan.classList.add('message-date');
+  dateSpan.textContent = tsParts.date;
+
+  const timeSpan = document.createElement('span');
+  timeSpan.classList.add('message-time');
+  timeSpan.textContent = tsParts.time;
+
+  headerRight.appendChild(dateSpan);
+  headerRight.appendChild(timeSpan);
+  headerDiv.appendChild(headerRight);
+
+  messageDiv.appendChild(headerDiv);
+
+  // BODY: reply preview + text
+  const bodyDiv = document.createElement('div');
+  bodyDiv.classList.add('message-body');
+
+  if (messageData.replyTo) {
+    const reply = messageData.replyTo;
+    const replyBlock = document.createElement('div');
+    replyBlock.classList.add('reply-preview');
+
+    const replyNick = document.createElement('span');
+    replyNick.classList.add('nick');
+    replyNick.textContent = `${reply.nickname}:`;
+    if (reply.rank) {
+      applyRankStyles(replyNick, reply.rank);
+    }
+
+    const replyText = document.createElement('span');
+    replyText.classList.add('reply-preview-text');
+    replyText.textContent = ` ${reply.text}`;
+
+    replyBlock.appendChild(replyNick);
+    replyBlock.appendChild(replyText);
+    bodyDiv.appendChild(replyBlock);
+  }
+
+  if (messageData.text) {
+    const textSpan = document.createElement('div');
+    textSpan.classList.add('text');
+    textSpan.textContent = messageData.text;
+    bodyDiv.appendChild(textSpan);
+  }
+
+  messageDiv.appendChild(bodyDiv);
+
+  if (messageData.type !== 'event') {
+    const actionsDiv = document.createElement('div');
+    actionsDiv.classList.add('message-actions');
+
+    const replyBtn = document.createElement('button');
+    replyBtn.classList.add('message-action-btn', 'reply-btn');
+    replyBtn.innerHTML = '&#8617;';
+    replyBtn.title = 'Reply';
+    replyBtn.onclick = () => setReplyContext(messageData);
+
+    const forwardBtn = document.createElement('button');
+    forwardBtn.classList.add('message-action-btn', 'forward-btn');
+    forwardBtn.innerHTML = '&#8618;';
+    forwardBtn.title = 'Forward';
+    forwardBtn.onclick = () => openForwardModal(messageData);
+
+    actionsDiv.appendChild(replyBtn);
+    actionsDiv.appendChild(forwardBtn);
+    messageDiv.appendChild(actionsDiv);
+  }
+
+  chatLog.appendChild(messageDiv);
+  chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+// --- PROFILE VIEW ---
 function openUserProfile(nickname) {
   chrome.runtime.sendMessage({ type: "GET_USER_PROFILE", nickname: nickname }, (response) => {
     if (response && response.success) {
       profileViewPic.src = response.profilePicture;
       profileViewName.textContent = response.nickname;
-      // Ensure the rank element is clean before applying new styles
       profileViewRank.innerHTML = `<span class="nickname"></span>`;
       applyRankStyles(profileViewRank.querySelector('.nickname'), response.rank);
       profileViewBio.textContent = response.bio;
@@ -398,8 +447,9 @@ function openUserProfile(nickname) {
   });
 }
 
-// --- UI Functions ---
+// --- ROOM LIST & SWITCH ---
 function renderRoomList() {
+  if (!roomListDiv) return;
   roomListDiv.innerHTML = '';
   joinedRooms.forEach(roomName => {
     const item = document.createElement('div');
@@ -427,16 +477,16 @@ function renderRoomList() {
     roomListDiv.appendChild(item);
   });
 }
+
 function switchRoom(roomName) {
-  
   if (unreadCounts[roomName] > 0) {
     delete unreadCounts[roomName];
     chrome.runtime.sendMessage({ type: "MARK_ROOM_AS_READ", roomName: roomName });
     renderRoomList();
   }
-  
+
   cancelReply();
-  
+
   currentRoom = roomName;
   let displayName = roomName;
   if (roomName.includes('_&_')) {
@@ -444,45 +494,43 @@ function switchRoom(roomName) {
     const otherUser = names.find(name => userNickname && name.toLowerCase() !== userNickname.toLowerCase());
     displayName = otherUser ? `@${otherUser}` : "@DM";
   }
-  currentRoomTitle.textContent = displayName;
-  
+  if (currentRoomTitle) currentRoomTitle.textContent = displayName;
+
   document.querySelectorAll('#room-list .room-list-item').forEach(item => {
     item.classList.toggle('active', item.dataset.roomName === roomName);
   });
-  
-  chatLog.innerHTML = '';
-  
+
+  if (chatLog) chatLog.innerHTML = '';
+
   if (roomName === 'home') {
     if (!hasSeenHomeTutorial) {
-      showWelcomeTutorial(); 
+      showWelcomeTutorial();
       hasSeenHomeTutorial = true;
     } else {
       addMessageToLog({ type: 'event', event: 'system', text: `Logado como: ${userNickname}` });
       addMessageToLog({ type: 'event', event: 'system', text: '*/help para ver os comandos*' });
     }
   } else if (roomName === 'login') {
-     showLoginTutorial();
+    showLoginTutorial();
   } else {
-     const messages = messageCache[currentRoom] || [];
-     messages.forEach(addMessageToLog);
+    const messages = messageCache[currentRoom] || [];
+    messages.forEach(addMessageToLog);
   }
-  
+
   document.body.classList.remove('sidebar-open');
-  setTimeout(() => { chatLog.scrollTop = chatLog.scrollHeight; }, 0);
-  
+  setTimeout(() => { if (chatLog) chatLog.scrollTop = chatLog.scrollHeight; }, 0);
+
   if (roomName !== 'login') {
     chrome.storage.local.set({ lastActiveRoom: roomName });
   }
 }
 
-// --- EVENT LISTENERS (ATUALIZADO) ---
+// --- LISTENERS ---
 function setupListeners() {
   setupResizeListeners();
   setupRankModalListeners();
   setupProfileModals();
-  // Forward modal is initialized during `initialize()` after elements are set up
 
-  // Setup main input and menu listeners - using safe event attachment
   safeAddEventListener(chatInput, 'keydown', (event) => {
     if (event.key === 'Enter') {
       handleChatInput(chatInput.value.trim());
@@ -496,12 +544,11 @@ function setupListeners() {
       document.body.classList.toggle('sidebar-open');
     }
   });
-  
+
   if (menuToggleBtn) {
     menuToggleBtn.onclick = () => document.body.classList.toggle('sidebar-open');
   }
 
-  // Setup undock button
   if (undockBtn) {
     undockBtn.onclick = async () => {
       try {
@@ -522,110 +569,115 @@ function setupListeners() {
     };
   }
 
-  // Setup reply cancel
-  replyCancelBtn.onclick = () => cancelReply();
-
-  // Setup resize handle if present
-  if (resizeHandle) {
-    setupResizeListeners();
-  }
+  if (replyCancelBtn) replyCancelBtn.onclick = () => cancelReply();
+  if (resizeHandle) setupResizeListeners();
 }
-// --- COMMAND HANDLER (ATUALIZADO) ---
+
+// --- COMMAND HANDLER ---
 function handleChatInput(text) {
-  // --- CORREÇÃO: Bloco `if (messageToForward)` REMOVIDO DAQUI ---
-  // A lógica de envio de forward agora está no `sendForwardedMessage`
-  
   if (currentRoom === 'login') {
     handleLoginCommands(text);
     return;
   }
-  
+
+  if (!text) {
+    if (replyContext) cancelReply();
+    return;
+  }
+
   if (text === '/help') {
-      chatLog.innerHTML = ''; 
-      if (currentRoom === 'home') {
-          showWelcomeHelp(); 
-      } else if (currentRoom === 'login') {
-          showLoginHelp(); 
-      } else {
-          addMessageToLog({ type: 'event', event: 'system', text: "Comandos: `/leave`, `/rank`, `/profile`, `/help`" });
-      }
-      return;
+    if (chatLog) chatLog.innerHTML = '';
+    if (currentRoom === 'home') showWelcomeHelp();
+    else if (currentRoom === 'login') showLoginHelp();
+    else addMessageToLog({ type: 'event', event: 'system', text: "Comandos: `/leave`, `/rank`, `/profile`, `/help`" });
+    return;
   }
-  
+
   if (text === '/profile') {
-      profilePicInput.value = userProfilePicture;
-      profileBioInput.value = userBio;
-      profileEditModal.classList.remove('hidden');
-      return;
+    if (profilePicInput) profilePicInput.value = userProfilePicture;
+    if (profileBioInput) profileBioInput.value = userBio;
+    profileEditModal.classList.remove('hidden');
+    return;
   }
-  
-  if (text.startsWith('/nick ')) { addMessageToLog({ type: 'event', event: 'system', text: `Comando /nick desabilitado por enquanto.` }); return; } 
-  if (text === '/rank') { rankModal.classList.remove('hidden'); rankNameInput.value = userRank.name; rankColorInput.value = userRank.color || '#FFFFFF'; rankOutlineInput.value = userRank.outline || '#000000'; rankOutlineWidth.value = userRank.outlineWidth || 1; rankShineInput.value = userRank.shine || '#000000'; rankAnimateShine.checked = userRank.animateShine || false; previewNick.textContent = ` ${userNickname}:`; updatePreview(); return; }
-  if (text === '/logout') { chrome.runtime.sendMessage({ type: "LOGOUT" }, (response) => { if (response && response.success) { showLoginScreen(); } else { addMessageToLog({ type: 'event', event: 'system', text: `Erro ao deslogar.` }); } }); return; }
-  
+
+  if (text.startsWith('/nick ')) {
+    addMessageToLog({ type: 'event', event: 'system', text: `Comando /nick desabilitado por enquanto.` });
+    return;
+  }
+  if (text === '/rank') {
+    rankModal.classList.remove('hidden');
+    rankNameInput.value = (userRank && userRank.name) || '';
+    rankColorInput.value = (userRank && userRank.color) || '#FFFFFF';
+    rankOutlineInput.value = (userRank && userRank.outline) || '#000000';
+    rankOutlineWidth.value = (userRank && userRank.outlineWidth) || 1;
+    rankShineInput.value = (userRank && userRank.shine) || '#000000';
+    rankAnimateShine.checked = (userRank && userRank.animateShine) || false;
+    previewNick.textContent = ` ${userNickname}:`;
+    updatePreview();
+    return;
+  }
+  if (text === '/logout') {
+    chrome.runtime.sendMessage({ type: "LOGOUT" }, (response) => {
+      if (response && response.success) showLoginScreen();
+      else addMessageToLog({ type: 'event', event: 'system', text: `Erro ao deslogar.` });
+    });
+    return;
+  }
+
   if (currentRoom === "home") {
     if (text.startsWith('/')) {
-        const parts = text.split(' '); const command = parts[0]; const subCommand = parts[1]; const roomName = parts[2]; const password = parts[3];
-        if (command === '/room') {
-          if (!subCommand) { addMessageToLog({ type: 'event', event: 'system', text: "Usage: /room <join|create> <name> <password>" }); return; }
-          if (!roomName) { addMessageToLog({ type: 'event', event: 'system', text: `Usage: /room ${subCommand} <name> <password>` }); return; }
-          if (!password) { addMessageToLog({ type: 'event', event: 'system', text: "Password required." }); return; }
-          if (subCommand === 'join') { handleJoinRoom(roomName, password); } 
-          else if (subCommand === 'create') { handleCreateRoom(roomName, password); } 
-          else { addMessageToLog({ type: 'event', event: 'system', text: "Use /room <join|create> ..." }); }
-        } else if (text === '/leave') { addMessageToLog({ type: 'event', event: 'system', text: 'Você não pode sair do /home.' });
-        } else { addMessageToLog({ type: 'event', event: 'system', text: 'Comando desconhecido. Use /help.' }); }
+      const parts = text.split(' ');
+      const command = parts[0];
+      const subCommand = parts[1];
+      const roomName = parts[2];
+      const password = parts[3];
+      if (command === '/room') {
+        if (!subCommand) { addMessageToLog({ type: 'event', event: 'system', text: "Usage: /room <join|create> <name> <password>" }); return; }
+        if (!roomName) { addMessageToLog({ type: 'event', event: 'system', text: `Usage: /room ${subCommand} <name> <password>` }); return; }
+        if (!password) { addMessageToLog({ type: 'event', event: 'system', text: "Password required." }); return; }
+        if (subCommand === 'join') handleJoinRoom(roomName, password);
+        else if (subCommand === 'create') handleCreateRoom(roomName, password);
+        else addMessageToLog({ type: 'event', event: 'system', text: "Use /room <join|create> ..." });
+      } else if (text === '/leave') {
+        addMessageToLog({ type: 'event', event: 'system', text: 'Você não pode sair do /home.' });
+      } else {
+        addMessageToLog({ type: 'event', event: 'system', text: 'Comando desconhecido. Use /help.' });
+      }
     } else {
-        addMessageToLog({ type: 'event', event: 'system', text: "Você está no /home. Use `/room join ...` ou `/help`." }); 
+      addMessageToLog({ type: 'event', event: 'system', text: "Você está no /home. Use `/room join ...` ou `/help`." });
     }
-  } else { 
-    if (text === '/leave') { 
-      chrome.runtime.sendMessage({ type: "LEAVE_ROOM", roomName: currentRoom }, (response) => { 
-        if (response && response.success) { 
-          joinedRooms = joinedRooms.filter(r => r !== currentRoom); 
-          delete messageCache[currentRoom]; 
-          renderRoomList(); 
-          switchRoom("home"); 
-          addMessageToLog({ type: 'event', event: 'system', text: `Você saiu de ${response.roomName}.` }); 
-        } else { addMessageToLog({ type: 'event', event: 'system', text: `Error leaving: ${response?.error || 'Unknown'}` }); } 
-      }); 
-      return; 
-    }
-    
-    // Se o texto não estiver vazio, envia a mensagem
-    if (text) {
-        const messageData = { 
-            type: 'chat', 
-            userId: userId, 
-            nickname: userNickname, 
-            rank: userRank, 
-            text: text 
-        };
-        
-        if (replyContext) {
-          messageData.replyTo = replyContext.data;
-          cancelReply();
-        }
-        
-        chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: currentRoom, message: messageData });
-    } else if (replyContext) {
-        // Se o texto estiver vazio MAS for um reply, cancela o reply
-        cancelReply();
-    }
+    return;
   }
+
+  // Sending message in a room (not home/login)
+  const messageData = {
+    type: 'chat',
+    userId: userId,
+    nickname: userNickname,
+    rank: userRank,
+    text: text,
+    timestamp: Date.now()
+  };
+
+  if (replyContext) {
+    messageData.replyTo = replyContext.data;
+    cancelReply();
+  }
+
+  chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: currentRoom, message: messageData });
 }
 
-// --- ATUALIZADO: Handler para Comandos de Login ---
+// --- LOGIN COMMANDS ---
 function handleLoginCommands(text) {
   const parts = text.split(' ');
   const command = parts[0];
-  
+
   if (command === '/help') {
-      chatLog.innerHTML = '';
-      showLoginHelp();
-      return;
+    if (chatLog) chatLog.innerHTML = '';
+    showLoginHelp();
+    return;
   }
-  
+
   if (command === '/login') {
     const nick = parts[1];
     const pass = parts[2];
@@ -635,8 +687,11 @@ function handleLoginCommands(text) {
       if (response && response.success) {
         addMessageToLog({ type: 'event', event: 'system', text: "Sucesso! Carregando chat..." });
         showChatScreen(response.userInfo, response.joinedRooms, response.messages, response.unreadCounts);
-      } else { addMessageToLog({ type: 'event', event: 'system', text: `Erro: ${response?.error || 'Falha no login'}` }); }
+      } else {
+        addMessageToLog({ type: 'event', event: 'system', text: `Erro: ${response?.error || 'Falha no login'}` });
+      }
     });
+    return;
   } else if (command === '/reg') {
     const nick = parts[1];
     const pass = parts[2];
@@ -647,14 +702,17 @@ function handleLoginCommands(text) {
       if (response && response.success) {
         addMessageToLog({ type: 'event', event: 'system', text: "Registro completo! Logando..." });
         showChatScreen(response.userInfo, response.joinedRooms, {}, {});
-      } else { addMessageToLog({ type: 'event', event: 'system', text: `Erro: ${response?.error || 'Falha no registro'}` }); }
+      } else {
+        addMessageToLog({ type: 'event', event: 'system', text: `Erro: ${response?.error || 'Falha no registro'}` });
+      }
     });
-  } else {
-    addMessageToLog({ type: 'event', event: 'system', text: "Comando desconhecido. Use /login, /reg, ou /help." });
+    return;
   }
+
+  addMessageToLog({ type: 'event', event: 'system', text: "Comando desconhecido. Use /login, /reg, ou /help." });
 }
 
-// --- ROOM LOGIC (ATUALIZADA) ---
+// --- ROOM ACTIONS ---
 function handleJoinRoom(roomName, password) {
   addMessageToLog({ type: 'event', event: 'system', text: `Entrando em ${roomName}...` });
   chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomName: roomName.toLowerCase(), password: password }, (response) => {
@@ -663,13 +721,14 @@ function handleJoinRoom(roomName, password) {
         joinedRooms.push(response.roomName);
         renderRoomList();
       }
-      messageCache[response.roomName] = response.history || []; 
-      switchRoom(response.roomName); 
+      messageCache[response.roomName] = response.history || [];
+      switchRoom(response.roomName);
     } else {
       addMessageToLog({ type: 'event', event: 'system', text: `Error: ${response?.error || 'Unknown'}` });
     }
   });
 }
+
 function handleCreateRoom(roomName, password) {
   addMessageToLog({ type: 'event', event: 'system', text: `Criando ${roomName}...` });
   chrome.runtime.sendMessage({ type: "CREATE_ROOM", roomName: roomName.toLowerCase(), password: password }, (response) => {
@@ -678,41 +737,40 @@ function handleCreateRoom(roomName, password) {
         joinedRooms.push(response.roomName);
         renderRoomList();
       }
-      messageCache[response.roomName] = response.history || []; 
-      switchRoom(response.roomName); 
+      messageCache[response.roomName] = response.history || [];
+      switchRoom(response.roomName);
     } else {
       addMessageToLog({ type: 'event', event: 'system', text: `Error: ${response?.error || 'Unknown'}` });
     }
   });
 }
 
-// --- Funções de Reply ---
+// --- REPLY HANDLERS ---
 function setReplyContext(messageData) {
-  const previewText = messageData.text.length > 40 ? messageData.text.substring(0, 40) + '...' : messageData.text;
-  
+  const previewText = (messageData.text || '').length > 40 ? messageData.text.substring(0, 40) + '...' : (messageData.text || '');
   replyContext = {
     type: 'reply',
-    data: { 
+    data: {
       nickname: messageData.nickname,
       rank: messageData.rank,
       text: previewText
     }
   };
-  
-  replyPreviewBarContent.innerHTML = `Respondendo a <strong>${messageData.nickname}</strong>: <span>${previewText}</span>`;
-  replyPreviewBar.style.display = 'block';
-  chatInput.focus();
+  if (replyPreviewBarContent) {
+    replyPreviewBarContent.innerHTML = `Respondendo a <strong>${messageData.nickname}</strong>: <span>${previewText}</span>`;
+    replyPreviewBar.style.display = 'block';
+  }
+  if (chatInput) chatInput.focus();
 }
+
 function cancelReply() {
   replyContext = null;
-  replyPreviewBar.style.display = 'none';
+  if (replyPreviewBar) replyPreviewBar.style.display = 'none';
 }
 
-// --- Forward Modal Logic ---
+// --- FORWARD MODAL ---
 let forwardFrame = null;
-
 function setupForwardModal() {
-  // Create an iframe for the forward modal if it doesn't exist
   if (!forwardFrame) {
     forwardFrame = document.createElement('iframe');
     forwardFrame.id = 'forward-frame';
@@ -732,47 +790,34 @@ function setupForwardModal() {
     `;
     document.body.appendChild(forwardFrame);
 
-    // Listen for messages from the forward modal
     window.addEventListener('message', (event) => {
-      const { type, data } = event.data;
-      switch (type) {
-        case 'FORWARD_MESSAGE':
-          const { message, targetRoom, comment } = data;
-          sendForwardedMessage(targetRoom, message, comment);
-          break;
-        case 'CLOSE_FORWARD':
-          closeForwardModal();
-          break;
+      const payload = event.data || {};
+      const type = payload.type;
+      const data = payload.data || {};
+      if (type === 'FORWARD_MESSAGE') {
+        const { message, targetRoom, comment } = data;
+        sendForwardedMessage(targetRoom, message, comment);
+      } else if (type === 'CLOSE_FORWARD') {
+        closeForwardModal();
       }
     });
   }
 }
 
 function openForwardModal(messageData) {
-  // Find the full message object from the cache using its ID.
-  // This ensures we have all properties, including the full text.
-  const fullMessage = messageCache[currentRoom]?.find(m => m.id === messageData.id);
-
+  const fullMessage = messageCache[currentRoom]?.find(m => m.id === messageData.id) || messageData;
   if (!fullMessage) {
     console.error('Could not find the full message to forward in the cache.');
     addMessageToLog({ type: 'event', event: 'system', text: 'Error: Could not forward this message.' });
     return;
   }
-
-  if (!forwardFrame) {
-    console.error('Forward frame not found');
-    setupForwardModal();
-  }
-
-  // Show the forward modal iframe
+  if (!forwardFrame) setupForwardModal();
   if (forwardFrame) {
     forwardFrame.style.display = 'block';
-    
-    // Initialize the forward modal with data
     forwardFrame.contentWindow.postMessage({
       type: 'FORWARD_INIT',
       data: {
-        message: fullMessage, // Use the complete message object
+        message: fullMessage,
         rooms: joinedRooms,
         userNickname: userNickname
       }
@@ -787,138 +832,259 @@ function closeForwardModal() {
   }
 }
 
-// Updated to handle forwarding with comments
 function sendForwardedMessage(targetRoomName, originalMessage, comment = '') {
-    if (!originalMessage) return;
-
-    // If the message is ALREADY a forward, we forward its *original* content.
-    // Otherwise, we create a new `forwardedFrom` block based on the message itself.
-    const forwardContent = originalMessage.isForward && originalMessage.forwardedFrom
-        ? originalMessage.forwardedFrom // Use the existing block
-        : { // Create a new block
-            text: originalMessage.text,
-        };
-
-    const messageData = {
-        type: 'chat',
-        nickname: userNickname,
-        rank: userRank,
-        text: comment ? `${comment}\n\u21AA [Forwarded] ${forwardContent.text}` : `\u21AA [Forwarded] ${forwardContent.text}`,
-        isForward: true,
-        timestamp: Date.now()
-    };
-
-    chrome.runtime.sendMessage({
-        type: "SEND_MESSAGE",
-        roomName: targetRoomName,
-        message: messageData
-    });
-
-    closeForwardModal();
-    addMessageToLog({
-        type: 'event',
-        event: 'system',
-        text: `Message forwarded to <strong>${targetRoomName}</strong>!`
-    });
+  if (!originalMessage) return;
+  const forwardContent = originalMessage.isForward && originalMessage.forwardedFrom
+    ? originalMessage.forwardedFrom
+    : { text: originalMessage.text || '' };
+  const messageData = {
+    type: 'chat',
+    nickname: userNickname,
+    rank: userRank,
+    text: comment ? `${comment}\n\u21AA [Forwarded] ${forwardContent.text}` : `\u21AA [Forwarded] ${forwardContent.text}`,
+    isForward: true,
+    forwardedFrom: forwardContent,
+    timestamp: Date.now()
+  };
+  chrome.runtime.sendMessage({ type: "SEND_MESSAGE", roomName: targetRoomName, message: messageData });
+  closeForwardModal();
+  addMessageToLog({ type: 'event', event: 'system', text: `Message forwarded to <strong>${targetRoomName}</strong>!` });
 }
 
-// --- FIM DAS NOVAS FUNÇÕES ---
-
-
-// --- Rank Style Helper Function ---
-function applyRankStyles(element, rankData) { const defaults = { name: 'USER', color: '#FFFFFF', outline: '#000000', outlineWidth: 1, shine: '#000000', animateShine: false }; const rank = { ...defaults, ...rankData }; element.textContent = `[${rank.name}]`; element.style.color = rank.color; const width = parseInt(rank.outlineWidth); const hasOutline = rank.outline && rank.outline !== '#000000' && width > 0; if (hasOutline) { element.style.webkitTextStrokeWidth = `${width}px`; element.style.webkitTextStrokeColor = rank.outline; } else { element.style.webkitTextStrokeWidth = '0px'; } const hasShine = rank.shine && rank.shine !== '#000000'; if (rank.animateShine && hasShine) { element.classList.add('animated-shine'); element.style.setProperty('--shine-color', rank.shine); element.style.textShadow = 'none'; } else { element.classList.remove('animated-shine'); element.style.animation = 'none'; element.style.removeProperty('--shine-color'); element.style.textShadow = hasShine ? `0 0 8px ${rank.shine}` : 'none'; } }
-// --- updatePreview function ---
+// --- RANK STYLES & PREVIEW ---
 function applyRankStyles(element, rankData) {
-  const defaults = { name: 'USER', color: '#FFFFFF', outline: '#000000', outlineWidth: 1, shine: '#000000', animateShine: false };
-  const rank = { ...defaults, ...rankData };
-  const originalText = element.textContent;
-  const rankSpan = `<span class="rank-span" style="color: ${rank.color}; -webkit-text-stroke: ${parseInt(rank.outlineWidth)}px ${rank.outline}; text-shadow: ${rank.shine && rank.shine !== '#000000' ? `0 0 8px ${rank.shine}` : 'none'};">${`[${rank.name}]`}</span>`;
-  element.innerHTML = `${rankSpan} ${originalText}`;
-}
-function updatePreview() { const rankData = { name: rankNameInput.value.toUpperCase().substring(0, 4) || 'RANK', color: rankColorInput.value, outline: rankOutlineInput.value, outlineWidth: rankOutlineWidth.value, shine: rankShineInput.value, animateShine: rankAnimateShine.checked }; previewNick.textContent = ` ${userNickname}:`; applyRankStyles(previewNick, rankData); }
+  if (!element) return;
+  const defaults = { name: 'USER', color: '#FFFFFF', outline: '#000000', outlineWidth: 0, shine: '', animateShine: false };
+  const rank = { ...defaults, ...(rankData || {}) };
 
-// --- Listeners dos Modais de Perfil ---
+  // Create wrapper for rank badge + name if element is a simple text node
+  // If element contains markup, we replace its innerHTML safely.
+  const originalText = (element.textContent || '').replace(/^\s*/, '');
+  const outlineWidth = parseInt(rank.outlineWidth) || 0;
+  const badge = document.createElement('span');
+  badge.className = 'rank-span';
+  badge.textContent = `[${(rank.name || 'USER').toString().substring(0, 10)}]`;
+  badge.style.background = 'rgba(255,255,255,0.03)';
+  badge.style.color = rank.color || '#fff';
+  badge.style.border = outlineWidth > 0 ? `${outlineWidth}px solid ${rank.outline || '#000'}` : 'none';
+  badge.style.boxShadow = rank.shine ? `0 0 8px ${rank.shine}` : 'none';
+  badge.style.marginRight = '6px';
+  badge.style.padding = '2px 6px';
+  badge.style.borderRadius = '6px';
+  badge.style.fontWeight = '700';
+  badge.style.fontSize = '12px';
+
+  // build container
+  const container = document.createElement('span');
+  container.className = 'rank-wrapper';
+  container.appendChild(badge);
+
+  const nameNode = document.createElement('span');
+  nameNode.textContent = ` ${originalText}`;
+  nameNode.className = 'rank-name-inline';
+  nameNode.style.color = '#e6e6e6';
+  container.appendChild(nameNode);
+
+  // replace element content
+  element.innerHTML = '';
+  element.appendChild(container);
+
+  if (rank.animateShine) {
+    container.classList.add('animated-shine');
+    container.style.setProperty('--shine-color', rank.shine || '#ffffff');
+  } else {
+    container.classList.remove('animated-shine');
+    container.style.removeProperty('--shine-color');
+  }
+}
+
+function updatePreview() {
+  const rankData = {
+    name: (rankNameInput && rankNameInput.value.toUpperCase().substring(0, 10)) || 'RANK',
+    color: (rankColorInput && rankColorInput.value) || '#FFFFFF',
+    outline: (rankOutlineInput && rankOutlineInput.value) || '#000000',
+    outlineWidth: (rankOutlineWidth && parseInt(rankOutlineWidth.value)) || 0,
+    shine: (rankShineInput && rankShineInput.value) || '',
+    animateShine: (rankAnimateShine && rankAnimateShine.checked) || false
+  };
+  if (previewNick) previewNick.textContent = ` ${userNickname}:`;
+  if (previewNick) applyRankStyles(previewNick, rankData);
+}
+
+// --- PROFILE MODALS ---
 function setupProfileModals() {
-  profileEditCloseBtn.onclick = () => {
-    profileEditModal.classList.add('hidden');
-  }
-  profileViewCloseBtn.onclick = () => {
-    profileViewModal.classList.add('hidden');
-  }
-  
-  profileSaveButton.onclick = () => {
+  if (profileEditCloseBtn) profileEditCloseBtn.onclick = () => profileEditModal.classList.add('hidden');
+  if (profileViewCloseBtn) profileViewCloseBtn.onclick = () => profileViewModal.classList.add('hidden');
+
+  if (profileSaveButton) profileSaveButton.onclick = () => {
     const newBio = profileBioInput.value;
     const newPic = profilePicInput.value;
-    
+
     userBio = newBio;
     userProfilePicture = newPic;
-    
-    chrome.runtime.sendMessage({ 
-      type: "UPDATE_USER_INFO", 
-      info: { 
-        bio: newBio, 
-        profilePicture: newPic 
-      } 
+
+    chrome.runtime.sendMessage({
+      type: "UPDATE_USER_INFO",
+      info: { bio: newBio, profilePicture: newPic }
     }, (response) => {
-        if(response && response.success) {
-            addMessageToLog({ type: 'event', event: 'system', text: 'Perfil salvo!' });
-            profileEditModal.classList.add('hidden');
-        } else {
-            addMessageToLog({ type: 'event', event: 'system', text: 'Erro ao salvar perfil.' });
-        }
+      if (response && response.success) {
+        addMessageToLog({ type: 'event', event: 'system', text: 'Perfil salvo!' });
+        profileEditModal.classList.add('hidden');
+      } else {
+        addMessageToLog({ type: 'event', event: 'system', text: 'Erro ao salvar perfil.' });
+      }
     });
-  }
-  
-  profileDmButton.onclick = () => {
+  };
+
+  if (profileDmButton) profileDmButton.onclick = () => {
     const targetNickname = profileDmButton.dataset.nickname;
     if (targetNickname) {
-        const dmRoomName = [userNickname, targetNickname].sort().join('_&_');
-        addMessageToLog({ type: 'event', event: 'system', text: `Iniciando DM com ${targetNickname}...` });
-        handleJoinRoom(dmRoomName, "DM_PASSWORD");
-        profileViewModal.classList.add('hidden');
+      const dmRoomName = [userNickname, targetNickname].sort().join('_&_');
+      addMessageToLog({ type: 'event', event: 'system', text: `Iniciando DM com ${targetNickname}...` });
+      handleJoinRoom(dmRoomName, "DM_PASSWORD");
+      profileViewModal.classList.add('hidden');
     }
-  }
+  };
 }
 
-// --- Rank Modal Logic ---
+// --- RANK MODAL LOGIC ---
 function setupRankModalListeners() {
-  rankModalCloseBtn.onclick = () => { rankModal.classList.add('hidden'); };
-  [rankNameInput, rankColorInput, rankOutlineInput, rankOutlineWidth, rankShineInput, rankAnimateShine].forEach(el => { const eventType = (el.type === 'checkbox' || el.type === 'number') ? 'change' : 'input'; el.addEventListener(eventType, updatePreview); if (el.hasAttribute('data-coloris')) { el.addEventListener('change', updatePreview); } });
-  saveRankButton.onclick = () => { const newRank = { name: rankNameInput.value.toUpperCase().substring(0, 4) || 'USER', color: rankColorInput.value, outline: rankOutlineInput.value, outlineWidth: parseInt(rankOutlineWidth.value) || 1, shine: rankShineInput.value, animateShine: rankAnimateShine.checked, creator: userNickname }; userRank = newRank; chrome.runtime.sendMessage({ type: "UPDATE_USER_INFO", info: { rank: newRank } }); if(newRank.name !== 'USER' && newRank.name !== 'GUEST') { chrome.runtime.sendMessage({ type: "SAVE_PUBLIC_RANK", rank: newRank }); } rankModal.classList.add('hidden'); addMessageToLog({ type: 'event', event: 'system', text: `Rank set to [${newRank.name}]!` }); }
-  createTabBtn.onclick = () => { createTab.classList.remove('hidden'); browseTab.classList.add('hidden'); createTabBtn.classList.add('active'); browseTabBtn.classList.remove('active'); }
-  browseTabBtn.onclick = () => { browseTab.classList.remove('hidden'); createTab.classList.add('hidden'); browseTabBtn.classList.add('active'); createTabBtn.classList.remove('active'); loadPublicRanks(); }
-  function loadPublicRanks() {
-      rankListDivBrowse.innerHTML = 'Loading...';
-      chrome.runtime.sendMessage({ type: "GET_PUBLIC_RANKS" }, (response) => {
-          if (response && response.success) { allPublicRanks = response.ranks || []; displayRankPage(1); }
-          else { console.error("Error getting ranks:", response?.error); rankListDivBrowse.innerHTML = 'Error loading ranks.'; }
-      });
-  }
-  function displayRankPage(page) { currentPage = page; rankListDivBrowse.innerHTML = ''; const totalPages = Math.ceil(allPublicRanks.length / ranksPerPage); if (totalPages === 0) { pageIndicator.textContent = 'Page 1 / 1'; prevPageBtn.disabled = true; nextPageBtn.disabled = true; rankListDivBrowse.innerHTML = 'No public ranks found.'; return; } const startIndex = (page - 1) * ranksPerPage; const endIndex = startIndex + ranksPerPage; const ranksToShow = allPublicRanks.slice(startIndex, endIndex); ranksToShow.forEach(rank => { const item = document.createElement('div'); item.classList.add('rank-list-item'); const preview = document.createElement('span'); preview.classList.add('rank-preview'); applyRankStyles(preview, rank); item.appendChild(preview); item.appendChild(document.createTextNode(` (by ${rank.creator || 'Unknown'})`)); item.onclick = () => { userRank = rank; chrome.runtime.sendMessage({ type: "UPDATE_USER_INFO", info: { rank: rank } }); rankModal.classList.add('hidden'); addMessageToLog({ type: 'event', event: 'system', text: `Rank set to [${rank.name}]!` }); }; rankListDivBrowse.appendChild(item); }); pageIndicator.textContent = `Page ${page} / ${totalPages}`; prevPageBtn.disabled = (page === 1); nextPageBtn.disabled = (page === totalPages); }
-  prevPageBtn.onclick = () => { if (currentPage > 1) displayRankPage(currentPage - 1); }
-  nextPageBtn.onclick = () => { const totalPages = Math.ceil(allPublicRanks.length / ranksPerPage); if (currentPage < totalPages) displayRankPage(currentPage + 1); }
-}
-// --- RESIZE LOGIC ---
-function setupResizeListeners() { resizeHandle.addEventListener('mousedown', startResize); } function startResize(e) { isResizing = true; startX = e.clientX; startY = e.clientY; startWidth = parseInt(document.body.style.width, 10); startHeight = parseInt(document.body.style.height, 10); document.addEventListener('mousemove', doResize); document.addEventListener('mouseup', stopResize); document.body.style.userSelect = 'none'; } function doResize(e) { if (!isResizing) return; let newWidth = startWidth + e.clientX - startX; let newHeight = startHeight + e.clientY - startY; newWidth = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH)); newHeight = Math.max(MIN_HEIGHT, Math.min(newHeight, MAX_HEIGHT)); applySize(newWidth, newHeight); } function stopResize() { if (!isResizing) return; isResizing = false; document.removeEventListener('mousemove', doResize); document.removeEventListener('mouseup', stopResize); document.body.style.userSelect = 'auto'; const finalWidth = parseInt(document.body.style.width, 10); const finalHeight = parseInt(document.body.style.height, 10); chrome.storage.sync.set({ popupWidth: finalWidth, popupHeight: finalHeight }); } function applySize(width, height) { document.body.style.width = `${width}px`; document.body.style.height = `${height}px`; }
+  if (rankModalCloseBtn) rankModalCloseBtn.onclick = () => { rankModal.classList.add('hidden'); };
+  const elements = [rankNameInput, rankColorInput, rankOutlineInput, rankOutlineWidth, rankShineInput, rankAnimateShine];
+  elements.forEach(el => {
+    if (!el) return;
+    const eventType = (el.type === 'checkbox' || el.type === 'number') ? 'change' : 'input';
+    el.addEventListener(eventType, updatePreview);
+    if (el.hasAttribute && el.hasAttribute('data-coloris')) {
+      el.addEventListener('change', updatePreview);
+    }
+  });
 
-// --- RUN ON STARTUP ---
+  if (saveRankButton) saveRankButton.onclick = () => {
+    const newRank = {
+      name: (rankNameInput.value || '').toUpperCase().substring(0, 10) || 'USER',
+      color: rankColorInput.value,
+      outline: rankOutlineInput.value,
+      outlineWidth: parseInt(rankOutlineWidth.value) || 0,
+      shine: rankShineInput.value,
+      animateShine: rankAnimateShine.checked,
+      creator: userNickname
+    };
+    userRank = newRank;
+    chrome.runtime.sendMessage({ type: "UPDATE_USER_INFO", info: { rank: newRank } });
+    if (newRank.name !== 'USER' && newRank.name !== 'GUEST') {
+      chrome.runtime.sendMessage({ type: "SAVE_PUBLIC_RANK", rank: newRank });
+    }
+    rankModal.classList.add('hidden');
+    addMessageToLog({ type: 'event', event: 'system', text: `Rank set to [${newRank.name}]!` });
+  };
+
+  if (createTabBtn) createTabBtn.onclick = () => { createTab.classList.remove('hidden'); browseTab.classList.add('hidden'); createTabBtn.classList.add('active'); browseTabBtn.classList.remove('active'); };
+  if (browseTabBtn) browseTabBtn.onclick = () => { browseTab.classList.remove('hidden'); createTab.classList.add('hidden'); browseTabBtn.classList.add('active'); createTabBtn.classList.remove('active'); loadPublicRanks(); };
+
+  function loadPublicRanks() {
+    if (!rankListDivBrowse) return;
+    rankListDivBrowse.innerHTML = 'Loading...';
+    chrome.runtime.sendMessage({ type: "GET_PUBLIC_RANKS" }, (response) => {
+      if (response && response.success) { allPublicRanks = response.ranks || []; displayRankPage(1); }
+      else { console.error("Error getting ranks:", response?.error); rankListDivBrowse.innerHTML = 'Error loading ranks.'; }
+    });
+  }
+
+  function displayRankPage(page) {
+    currentPage = page;
+    if (!rankListDivBrowse) return;
+    rankListDivBrowse.innerHTML = '';
+    const totalPages = Math.ceil(allPublicRanks.length / ranksPerPage);
+    if (totalPages === 0) {
+      pageIndicator.textContent = 'Page 1 / 1';
+      prevPageBtn.disabled = true;
+      nextPageBtn.disabled = true;
+      rankListDivBrowse.innerHTML = 'No public ranks found.';
+      return;
+    }
+    const startIndex = (page - 1) * ranksPerPage;
+    const endIndex = startIndex + ranksPerPage;
+    const ranksToShow = allPublicRanks.slice(startIndex, endIndex);
+    ranksToShow.forEach(rank => {
+      const item = document.createElement('div');
+      item.classList.add('rank-list-item');
+      const preview = document.createElement('span');
+      preview.classList.add('rank-preview');
+      applyRankStyles(preview, rank);
+      item.appendChild(preview);
+      item.appendChild(document.createTextNode(` (by ${rank.creator || 'Unknown'})`));
+      item.onclick = () => {
+        userRank = rank;
+        chrome.runtime.sendMessage({ type: "UPDATE_USER_INFO", info: { rank: rank } });
+        rankModal.classList.add('hidden');
+        addMessageToLog({ type: 'event', event: 'system', text: `Rank set to [${rank.name}]!` });
+      };
+      rankListDivBrowse.appendChild(item);
+    });
+    pageIndicator.textContent = `Page ${page} / ${totalPages}`;
+    prevPageBtn.disabled = (page === 1);
+    nextPageBtn.disabled = (page === totalPages);
+  }
+
+  if (prevPageBtn) prevPageBtn.onclick = () => { if (currentPage > 1) displayRankPage(currentPage - 1); };
+  if (nextPageBtn) nextPageBtn.onclick = () => { const totalPages = Math.ceil(allPublicRanks.length / ranksPerPage); if (currentPage < totalPages) displayRankPage(currentPage + 1); };
+}
+
+// --- RESIZE LOGIC ---
+function setupResizeListeners() {
+  if (!resizeHandle) return;
+  resizeHandle.addEventListener('mousedown', startResize);
+}
+function startResize(e) {
+  isResizing = true;
+  startX = e.clientX;
+  startY = e.clientY;
+  startWidth = parseInt(document.body.style.width, 10) || document.body.clientWidth;
+  startHeight = parseInt(document.body.style.height, 10) || document.body.clientHeight;
+  document.addEventListener('mousemove', doResize);
+  document.addEventListener('mouseup', stopResize);
+  document.body.style.userSelect = 'none';
+}
+function doResize(e) {
+  if (!isResizing) return;
+  let newWidth = startWidth + e.clientX - startX;
+  let newHeight = startHeight + e.clientY - startY;
+  newWidth = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
+  newHeight = Math.max(MIN_HEIGHT, Math.min(newHeight, MAX_HEIGHT));
+  applySize(newWidth, newHeight);
+}
+function stopResize() {
+  if (!isResizing) return;
+  isResizing = false;
+  document.removeEventListener('mousemove', doResize);
+  document.removeEventListener('mouseup', stopResize);
+  document.body.style.userSelect = 'auto';
+  const finalWidth = parseInt(document.body.style.width, 10);
+  const finalHeight = parseInt(document.body.style.height, 10);
+  chrome.storage.sync.set({ popupWidth: finalWidth, popupHeight: finalHeight });
+}
+function applySize(width, height) {
+  document.body.style.width = `${width}px`;
+  document.body.style.height = `${height}px`;
+}
+
+// --- STARTUP ---
 window.onload = () => {
   console.log("Window loaded. Initializing popup/sidebar...");
   const isPopup = document.body.classList.contains('is-popup');
-  const isSidePanel = !isPopup;
-  
-  if (isPopup || isSidePanel) {
+  if (isPopup || !isPopup) { // always initialize in this build
     initializePopup();
   }
 };
+
 function initializePopup() {
-  initialize(); // Sua função de inicialização principal
-  
-  if (typeof Coloris === 'function') { 
-    Coloris({ 
-      themeMode: 'dark', 
-      alpha: false, 
-      parent: 'body', 
+  initialize();
+  if (typeof Coloris === 'function') {
+    Coloris({
+      themeMode: 'dark',
+      alpha: false,
+      parent: 'body',
       swatches: ['#FFFFFF', '#000000', '#FF5555', '#55FFFF', '#55FF55', '#FFFF55', '#FF55FF', '#007bff']
     });
   } else {

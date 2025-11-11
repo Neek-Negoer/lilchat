@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="coloris.min.css">
   <link rel="stylesheet" href="popup.css">
   <script src="coloris.min.js"></script>
@@ -45,7 +48,12 @@
         <div class="form-group-half"><div class="form-group"><label for="rank-outline-input">Outline Color</label><input type="text" id="rank-outline-input" data-coloris value="#000000"></div><div class="form-group"><label for="rank-outline-width">Outline Size (px)</label><input type="number" id="rank-outline-width" value="1" min="0" max="3"></div></div>
         <div class="form-group-half"><div class="form-group"><label for="rank-shine-input">Shine/Glow Color</label><input type="text" id="rank-shine-input" data-coloris value="#000000"></div><div class="form-group checkbox-group"><input type="checkbox" id="rank-animate-shine"><label for="rank-animate-shine">Pulsing Shine?</label></div></div>
         <h4>Preview:</h4>
-        <div id="rank-preview" class="message"><span class="nickname rank-preview-span">[RANK]</span><span class="nick" id="rank-preview-nick"> YourName:</span><span class="text"> Look at my new rank!</span></div>
+        <div id="rank-preview" class="message">
+          <span class="nickname rank-preview-span">[RANK]</span>
+          <span class="nick" id="rank-preview-nick"> YourName:</span>
+          <span class="time" id="rank-preview-time"></span>
+          <span class="text"> Look at my new rank!</span>
+        </div>
         <button id="save-rank-button">Save and Apply</button>
       </div>
       <div id="browse-tab" class="tab-content hidden">
@@ -98,8 +106,7 @@
       <div class="form-group search-bar-group">
         <span class="search-icon">&#128269;</span> <input type="text" id="forward-search-input" placeholder="Pesquisar chats...">
       </div>
-      <div id="forward-room-list">
-        </div>
+      <div id="forward-room-list"></div>
     </div>
   </div>
 
