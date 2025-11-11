@@ -20,7 +20,6 @@
     {
       "resources": [
         "sidepanel.html",
-        "background.js",
         "sidepanel.css",
         "sidepanel.js",
         "forward.html",
