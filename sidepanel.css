@@ -398,6 +398,16 @@ body.sidebar-open #main-content {
   color: #ccc;
 }
 
+/* --- NOVO: Destaque para mensagem rolada --- */
+.message.highlight {
+  /* A cor de fundo será definida via JavaScript */
+  transition: background-color 0.3s ease-in-out;
+}
+
+.message-container > .message.highlight {
+  background-color: transparent !important; /* O highlight é no .message, não no container */
+}
+
 /* --- Forward preview --- */
 .forward-preview {
   background: #1a1a1a;

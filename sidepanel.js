@@ -484,14 +484,14 @@ function addMessageToLog(messageData) {
   if (messageData.profilePicture && !messageData.replyTo) {
     const picDiv = document.createElement("div");
     picDiv.classList.add("message-pic-wrapper");
-    
+
     const pic = document.createElement("img");
     pic.src = messageData.profilePicture;
     pic.alt = messageData.nickname || "User";
     pic.classList.add("message-pic");
     pic.style.cursor = "pointer";
     pic.onclick = () => openUserProfile(messageData.nickname);
-    
+
     picDiv.appendChild(pic);
     messageContainer.appendChild(picDiv);
   } else if (!messageData.profilePicture && !messageData.replyTo) {
@@ -604,8 +604,94 @@ function addMessageToLog(messageData) {
   } else {
     chatLog.appendChild(messageDiv);
   }
-  
+
+  // --- ADICIONA O EVENTO DE CLIQUE APÓS A MENSAGEM ESTAR NO DOM ---
+  // Isso garante que o elemento replyBlock exista e possa ser encontrado.
+  if (messageData.replyTo && messageData.id) {
+    const thisMessageElement = chatLog.querySelector(
+      `[data-message-id="${messageData.id}"]`
+    );
+    if (thisMessageElement) {
+      const replyBlock = thisMessageElement.querySelector(".reply-preview");
+      const originalMessageId = messageData.replyTo.id;
+
+      if (replyBlock && originalMessageId) {
+        replyBlock.style.cursor = "pointer";
+        replyBlock.title = "Clique para ver a mensagem original";
+        replyBlock.addEventListener("click", () => {
+          scrollToMessage(originalMessageId, messageData.replyTo.rank);
+        });
+      }
+    }
+  }
+
   chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+// --- NOVO: Rola para a mensagem com o ID especificado e a destaca ---
+function scrollToMessage(messageId, rank) {
+  const messageElement = chatLog.querySelector(
+    `[data-message-id="${messageId}"]`
+  );
+  if (messageElement) {
+    messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    let highlightColor = "rgba(85, 135, 255, 0.15)"; // Cor azul padrão de fallback
+
+    // Usa a cor do rank para o destaque, se disponível e válida
+    if (rank && rank.color) {
+      let hex = rank.color.startsWith("#") ? rank.color.slice(1) : rank.color;
+
+      // Expande o formato de 3 dígitos (ex: #FFF -> #FFFFFF)
+      if (hex.length === 3) {
+        hex = hex
+          .split("")
+          .map((char) => char + char)
+          .join("");
+      }
+
+      let shineHex = rank.shine?.startsWith("#")
+        ? rank.shine.slice(1)
+        : rank.shine;
+      if (shineHex && shineHex.length === 3) {
+        shineHex = shineHex
+          .split("")
+          .map((char) => char + char)
+          .join("");
+      }
+
+      if (hex.length === 6) {
+        // A cor principal (texto) é obrigatória
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+
+        // Aplica a cor apenas se os valores forem números válidos
+        if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+          // Se houver cor de brilho, mistura com a cor principal
+          if (shineHex && shineHex.length === 6) {
+            const shineR = parseInt(shineHex.substring(0, 2), 16);
+            const shineG = parseInt(shineHex.substring(2, 4), 16);
+            const shineB = parseInt(shineHex.substring(4, 6), 16);
+            if (!isNaN(shineR) && !isNaN(shineG) && !isNaN(shineB)) {
+              // Cria um gradiente sutil com as duas cores
+              highlightColor = `linear-gradient(135deg, rgba(${r},${g},${b},0.2), rgba(${shineR},${shineG},${shineB},0.2))`;
+            }
+          } else {
+            // Se não houver brilho, usa apenas a cor principal
+            highlightColor = `rgba(${r}, ${g}, ${b}, 0.2)`;
+          }
+        }
+      }
+    }
+
+    messageElement.style.background = highlightColor;
+    messageElement.classList.add("highlight"); // Adiciona para a transição
+    setTimeout(() => {
+      messageElement.classList.remove("highlight");
+      messageElement.style.background = ""; // Remove o estilo inline
+    }, 1500);
+  }
 }
 
 // --- PROFILE VIEW ---
@@ -616,7 +702,8 @@ function openUserProfile(nickname) {
       if (response && response.success) {
         profileViewPic.src = response.profilePicture;
         profileViewPic.style.cursor = "pointer";
-        profileViewPic.onclick = () => openProfilePicModal(response.profilePicture);
+        profileViewPic.onclick = () =>
+          openProfilePicModal(response.profilePicture);
         profileViewName.textContent = response.nickname;
         profileViewRank.innerHTML = `<span class="nickname"></span>`;
         applyRankStyles(
@@ -1121,6 +1208,7 @@ function setReplyContext(messageData) {
   replyContext = {
     type: "reply",
     data: {
+      id: messageData.id, // Salva o ID da mensagem original
       nickname: messageData.nickname,
       rank: messageData.rank,
       text: previewText,
@@ -1129,26 +1217,28 @@ function setReplyContext(messageData) {
   if (replyPreviewBarContent) {
     // Clear the content first
     replyPreviewBarContent.innerHTML = "";
-    
+
     // Create a span for the nickname
     const nicknameSpan = document.createElement("span");
     nicknameSpan.classList.add("nick");
     nicknameSpan.textContent = messageData.nickname;
-    
+
     // Apply rank styling to the nickname
     if (messageData.rank) {
       applyRankStyles(nicknameSpan, messageData.rank);
     }
-    
+
     // Create the text content
     const textSpan = document.createElement("span");
     textSpan.textContent = `: ${previewText}`;
-    
+
     // Append everything
-    replyPreviewBarContent.appendChild(document.createTextNode("Respondendo a "));
+    replyPreviewBarContent.appendChild(
+      document.createTextNode("Respondendo a ")
+    );
     replyPreviewBarContent.appendChild(nicknameSpan);
     replyPreviewBarContent.appendChild(textSpan);
-    
+
     replyPreviewBar.style.display = "block";
   }
   if (chatInput) chatInput.focus();
@@ -1344,14 +1434,18 @@ function setupProfileModals() {
       profileViewModal.classList.add("hidden");
 
   // Profile picture modal listeners
-  const profilePicModalCloseBtn = document.getElementById("profile-pic-modal-close-btn");
+  const profilePicModalCloseBtn = document.getElementById(
+    "profile-pic-modal-close-btn"
+  );
   const profilePicModal = document.getElementById("profile-pic-modal");
-  const profilePicModalOverlay = document.getElementById("profile-pic-modal-overlay");
-  
+  const profilePicModalOverlay = document.getElementById(
+    "profile-pic-modal-overlay"
+  );
+
   if (profilePicModalCloseBtn) {
     profilePicModalCloseBtn.onclick = closeProfilePicModal;
   }
-  
+
   if (profilePicModalOverlay) {
     profilePicModalOverlay.onclick = (e) => {
       // Only close if clicking on the overlay, not on the image
