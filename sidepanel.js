@@ -1527,6 +1527,16 @@ function setupRankModalListeners() {
     }
   });
 
+  // Adiciona listener para o slider de largura da borda
+  if (rankOutlineWidth) {
+    const widthValueSpan = document.getElementById("rank-outline-width-value");
+    rankOutlineWidth.addEventListener("input", () => {
+      if (widthValueSpan) {
+        widthValueSpan.textContent = `${rankOutlineWidth.value}px`;
+      }
+    });
+  }
+
   if (saveRankButton)
     saveRankButton.onclick = () => {
       const newRank = {
