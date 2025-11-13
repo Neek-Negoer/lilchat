@@ -233,9 +233,6 @@ body.members-sidebar-open #members-sidebar {
   stroke: #fff; /* Define a cor do contorno do ícone SVG para branco */
   transition: stroke 0.2s;
 }
-#members-toggle-btn:hover {
-  /* O color não afeta o SVG, então não é mais necessário */
-}
 #members-toggle-btn:hover svg {
   stroke: #007bff; /* Muda a cor do ícone no hover */
 }
@@ -261,28 +258,13 @@ body.members-sidebar-open #members-sidebar {
 #chat-log {
   flex-grow: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* Remove a barra de rolagem horizontal */
   padding: 10px;
 }
 .message.system-event {
   color: #888;
   font-style: italic;
   font-size: 0.9em;
-}
-
-/* --- Prompt (restored old-style fixed input bar) */
-#prompt {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: #060606;
-  border-top: 1px solid #222;
-  padding: 8px 12px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 500;
 }
 
 .prompt-symbol {
@@ -292,6 +274,21 @@ body.members-sidebar-open #members-sidebar {
   font-size: 14px;
   margin-right: 6px;
   user-select: none;
+}
+/* --- Prompt and Reply Bar --- */
+#reply-preview-bar {
+  display: none; /* Shown by JS */
+  background-color: #1c1c1c;
+  border-top: 1px solid #333;
+  padding: 5px 10px;
+  font-size: 0.9em;
+  color: #ccc;
+  font-family: Arial, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0; /* Don't shrink */
+  position: relative; /* For the cancel button */
 }
 
 #chat-input {
@@ -311,11 +308,37 @@ body.members-sidebar-open #members-sidebar {
   color: #7a7a7a;
 }
 
-/* ensure visible terminal content above input */
-#terminal #chat-log {
-  padding-bottom: 120px; /* space for prompt + reply bar */
+/* --- NOVO: Custom Scrollbar for Chat Log --- */
+#chat-log::-webkit-scrollbar {
+  width: 15px;
 }
 
+#chat-log::-webkit-scrollbar-track {
+  background: transparent; /* Torna a pista do scrollbar invisível */
+}
+
+#chat-log::-webkit-scrollbar-thumb {
+  background-color: #555; /* Cor do scrollbar */
+  border-radius: 8px; /* Mantém as bordas arredondadas, mas com aparência mais alongada */
+  border: 2px solid #0d0d0d; /* Diminui a borda para aumentar a "bolinha" */
+}
+
+#chat-log::-webkit-scrollbar-thumb:hover {
+  background-color: #777; /* Cor ao passar o mouse */
+  cursor: pointer;
+}
+
+/* --- Prompt Bar --- */
+#prompt {
+  background: #060606;
+  border-top: none; /* Remove a linha separadora */
+  padding: 8px 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0; /* Don't shrink */
+}
 /* --- Message layout (Discord-like) --- */
 .message-container {
   display: flex;
@@ -514,27 +537,11 @@ body.members-sidebar-open #members-sidebar {
 }
 
 /* --- Reply bar --- */
-#reply-preview-bar {
-  display: none;
-  position: absolute;
-  bottom: 56px;
-  left: 0;
-  right: 0;
-  background-color: #1c1c1c;
-  border-top: 1px solid #333;
-  padding: 5px 10px;
-  font-size: 0.9em;
-  color: #ccc;
-  font-family: Arial, sans-serif;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  z-index: 499;
-}
 #reply-preview-bar-content {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-right: 25px; /* Space for cancel button */
 }
 #reply-preview-bar strong {
   color: #007bff;
@@ -546,8 +553,12 @@ body.members-sidebar-open #members-sidebar {
   color: #aaa;
   font-weight: bold;
   cursor: pointer;
-  font-size: 1.2em;
+  font-size: 20px;
   line-height: 1;
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
 }
 #reply-cancel-btn:hover {
   color: #fff;
