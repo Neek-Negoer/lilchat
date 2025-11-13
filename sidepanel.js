@@ -149,6 +149,7 @@ let terminal,
   profileDmButton,
   replyPreviewBar,
   replyPreviewBarContent,
+  mentionSuggestions,
   replyCancelBtn,
   forwardModal,
   forwardModalCloseBtn,
@@ -222,6 +223,7 @@ function initialize() {
 
   replyPreviewBar = document.getElementById("reply-preview-bar");
   replyPreviewBarContent = document.getElementById("reply-preview-bar-content");
+  mentionSuggestions = document.getElementById("mention-suggestions");
   replyCancelBtn = document.getElementById("reply-cancel-btn");
 
   setupForwardModal();
@@ -481,6 +483,13 @@ function addMessageToLog(messageData) {
     chatLog.scrollTop = chatLog.scrollHeight;
     return;
   }
+
+  // --- NOVO: Destaque de Menção ---
+  const mentionRegex = new RegExp(`@${userNickname}\\b`, "i");
+  if (messageData.text && mentionRegex.test(messageData.text)) {
+    messageDiv.classList.add("mention-highlight");
+  }
+  // --- FIM NOVO ---
 
   // Create message container with profile pic
   const messageContainer = document.createElement("div");
@@ -851,6 +860,15 @@ function switchRoom(roomName) {
   }
 }
 
+function getRoomMembers(roomName, callback) {
+  chrome.runtime.sendMessage(
+    { type: "GET_ROOM_MEMBERS", roomName },
+    (response) => {
+      callback(response);
+    }
+  );
+}
+
 // --- NOVO: Lógica da Lista de Membros ---
 function updateMemberList(roomName) {
   const onlineList = document.getElementById("online-members-list");
@@ -861,36 +879,33 @@ function updateMemberList(roomName) {
   onlineList.innerHTML = "Carregando...";
   offlineList.innerHTML = "";
 
-  chrome.runtime.sendMessage(
-    { type: "GET_ROOM_MEMBERS", roomName },
-    (response) => {
-      if (response && response.success) {
-        onlineList.innerHTML = "";
-        offlineList.innerHTML = "";
+  getRoomMembers(roomName, (response) => {
+    if (response && response.success) {
+      onlineList.innerHTML = "";
+      offlineList.innerHTML = "";
 
-        const { online, offline } = response;
+      const { online, offline } = response;
 
-        online.forEach((member) => {
-          const item = createMemberListItem(member, true);
-          onlineList.appendChild(item);
-        });
+      online.forEach((member) => {
+        const item = createMemberListItem(member, true);
+        onlineList.appendChild(item);
+      });
 
-        offline.forEach((member) => {
-          const item = createMemberListItem(member, false);
-          offlineList.appendChild(item);
-        });
+      offline.forEach((member) => {
+        const item = createMemberListItem(member, false);
+        offlineList.appendChild(item);
+      });
 
-        if (online.length === 0)
-          onlineList.innerHTML =
-            '<div class="member-list-item" style="color: #888;">Ninguém online.</div>';
-        if (offline.length === 0)
-          offlineList.innerHTML =
-            '<div class="member-list-item" style="color: #888;">Nenhum membro offline.</div>';
-      } else {
-        onlineList.innerHTML = "Erro ao carregar.";
-      }
+      if (online.length === 0)
+        onlineList.innerHTML =
+          '<div class="member-list-item" style="color: #888;">Ninguém online.</div>';
+      if (offline.length === 0)
+        offlineList.innerHTML =
+          '<div class="member-list-item" style="color: #888;">Nenhum membro offline.</div>';
+    } else {
+      onlineList.innerHTML = "Erro ao carregar.";
     }
-  );
+  });
 }
 
 function createMemberListItem(member, isOnline) {
@@ -933,12 +948,124 @@ function setupListeners() {
   setupProfileModals();
 
   safeAddEventListener(chatInput, "keydown", (event) => {
-    if (event.key === "Enter") {
+    const suggestionsVisible = !mentionSuggestions.classList.contains("hidden");
+
+    if (suggestionsVisible) {
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        navigateMentionSuggestions(event.key);
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        const selected = mentionSuggestions.querySelector(
+          ".mention-item.selected"
+        );
+        if (selected) {
+          event.preventDefault();
+          selectMention(selected.dataset.nickname);
+          return;
+        }
+      }
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
       handleChatInput(chatInput.value.trim());
       chatInput.value = "";
       event.preventDefault();
     }
+
+    if (event.key === "Escape") {
+      if (suggestionsVisible) {
+        hideMentionSuggestions();
+      } else if (replyContext) {
+        cancelReply();
+      }
+    }
   });
+
+  safeAddEventListener(chatInput, "input", handleMentionInput);
+  safeAddEventListener(chatInput, "blur", () => {
+    // Hide suggestions with a small delay to allow click events to register
+    setTimeout(hideMentionSuggestions, 200);
+  });
+
+  function navigateMentionSuggestions(key) {
+    const items = Array.from(
+      mentionSuggestions.querySelectorAll(".mention-item")
+    );
+    if (items.length === 0) return;
+
+    let currentIndex = items.findIndex((item) =>
+      item.classList.contains("selected")
+    );
+
+    if (key === "ArrowDown") {
+      currentIndex = (currentIndex + 1) % items.length;
+    } else if (key === "ArrowUp") {
+      currentIndex = (currentIndex - 1 + items.length) % items.length;
+    }
+
+    items.forEach((item, index) => {
+      item.classList.toggle("selected", index === currentIndex);
+      if (index === currentIndex) {
+        item.scrollIntoView({ block: "nearest" });
+      }
+    });
+  }
+
+  function selectMention(nickname) {
+    const currentValue = chatInput.value;
+    const atIndex = currentValue.lastIndexOf("@");
+    const newValue = `${currentValue.substring(0, atIndex)}@${nickname} `;
+    chatInput.value = newValue;
+    chatInput.focus();
+    hideMentionSuggestions();
+  }
+
+  function handleMentionInput(event) {
+    const text = event.target.value;
+    const cursorPos = event.target.selectionStart;
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch && currentRoom !== "home" && currentRoom !== "login") {
+      const searchTerm = atMatch[1].toLowerCase();
+      getRoomMembers(currentRoom, (response) => {
+        if (response && response.success) {
+          const members = [...response.online, ...response.offline];
+          const filtered = members.filter((m) =>
+            m.nickname.toLowerCase().startsWith(searchTerm)
+          );
+          renderMentionSuggestions(filtered);
+        }
+      });
+    } else {
+      hideMentionSuggestions();
+    }
+  }
+
+  function renderMentionSuggestions(members) {
+    if (members.length === 0) {
+      hideMentionSuggestions();
+      return;
+    }
+    mentionSuggestions.innerHTML = members
+      .map(
+        (member) => `
+      <div class="mention-item" data-nickname="${member.nickname}">
+        <img src="${member.profilePicture}" class="mention-item-pic" alt="${member.nickname}">
+        <span class="mention-item-name">${member.nickname}</span>
+      </div>
+    `
+      )
+      .join("");
+    mentionSuggestions.querySelectorAll(".mention-item").forEach((item) => {
+      item.addEventListener("click", () =>
+        selectMention(item.dataset.nickname)
+      );
+    });
+    mentionSuggestions.classList.remove("hidden");
+  }
 
   safeAddEventListener(menuToggleBtn, "keydown", (event) => {
     if (event.key === "Enter") {
@@ -1344,6 +1471,10 @@ function setReplyContext(messageData) {
     replyPreviewBar.style.display = "block";
   }
   if (chatInput) chatInput.focus();
+}
+
+function hideMentionSuggestions() {
+  if (mentionSuggestions) mentionSuggestions.classList.add("hidden");
 }
 
 function cancelReply() {

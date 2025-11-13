@@ -549,6 +549,13 @@ body.members-sidebar-open #members-sidebar {
   background-color: transparent !important; /* O highlight é no .message, não no container */
 }
 
+/* --- NOVO: Destaque para menção do usuário --- */
+.message.mention-highlight {
+  background-color: rgba(255, 180, 0, 0.08);
+  border-left: 3px solid #ffb400;
+  padding-left: 9px; /* Ajusta o padding para compensar a borda */
+}
+
 /* --- Forward preview --- */
 .forward-preview {
   background: #1a1a1a;
@@ -1127,6 +1134,41 @@ body.is-popup #resize-handle {
 }
 #forward-room-list .room-list-item {
   border-bottom: 1px solid #222;
+}
+
+/* --- NOVO: Estilos para Sugestões de Menção --- */
+#mention-suggestions {
+  position: absolute;
+  bottom: 50px; /* Ajuste conforme a altura da barra de digitação */
+  left: 10px;
+  right: 10px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 600;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.mention-item {
+  padding: 8px 12px;
+  color: #ccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mention-item:hover,
+.mention-item.selected {
+  background-color: #3a3a3a;
+}
+
+.mention-item-pic {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
 }
 
 /* End of file */
