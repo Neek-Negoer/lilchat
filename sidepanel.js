@@ -149,6 +149,7 @@ let terminal,
   profileDmButton,
   replyPreviewBar,
   replyPreviewBarContent,
+  onlineMembersCountSpan,
   scrollToBottomBtn,
   mentionSuggestions,
   replyCancelBtn,
@@ -224,6 +225,7 @@ function initialize() {
 
   replyPreviewBar = document.getElementById("reply-preview-bar");
   replyPreviewBarContent = document.getElementById("reply-preview-bar-content");
+  onlineMembersCountSpan = document.getElementById("online-members-count");
   scrollToBottomBtn = document.getElementById("scroll-to-bottom-btn");
   mentionSuggestions = document.getElementById("mention-suggestions");
   replyCancelBtn = document.getElementById("reply-cancel-btn");
@@ -794,6 +796,8 @@ function renderRoomList() {
 }
 
 function switchRoom(roomName) {
+  const unreadCount = unreadCounts[roomName] || 0;
+
   if (unreadCounts[roomName] > 0) {
     delete unreadCounts[roomName];
     chrome.runtime.sendMessage({
@@ -823,7 +827,13 @@ function switchRoom(roomName) {
 
   // Mostra ou esconde o botão de membros
   const showMembersBtn = roomName !== "login" && roomName !== "home";
-  membersToggleBtn.classList.toggle("hidden", !showMembersBtn);
+  if (membersToggleBtn)
+    membersToggleBtn.classList.toggle("hidden", !showMembersBtn);
+  if (onlineMembersCountSpan)
+    onlineMembersCountSpan.classList.toggle("hidden", !showMembersBtn);
+  if (!showMembersBtn && onlineMembersCountSpan)
+    onlineMembersCountSpan.textContent = ""; // Limpa o contador
+
   if (showMembersBtn) updateMemberList(roomName);
 
   if (chatLog) chatLog.innerHTML = "";
@@ -847,14 +857,42 @@ function switchRoom(roomName) {
   } else if (roomName === "login") {
     showLoginTutorial();
   } else {
+    // --- LÓGICA DE MENSAGENS NÃO LIDAS ---
     const messages = messageCache[currentRoom] || [];
-    messages.forEach(addMessageToLog);
+    let firstUnreadMessageId = null;
+    let firstUnreadIndex = -1;
+
+    if (unreadCount > 0 && messages.length >= unreadCount) {
+      firstUnreadIndex = messages.length - unreadCount;
+      firstUnreadMessageId = messages[firstUnreadIndex]?.id;
+    }
+
+    messages.forEach((message, index) => {
+      // Insere o separador antes da primeira mensagem não lida
+      if (index === firstUnreadIndex && firstUnreadMessageId) {
+        const separator = document.createElement("div");
+        separator.classList.add("unread-separator");
+        separator.innerHTML = "<span>Mensagens Novas</span>";
+        separator.id = "unread-separator-line";
+        chatLog.appendChild(separator);
+      }
+      addMessageToLog(message);
+    });
   }
 
   document.body.classList.remove("sidebar-open");
   document.body.classList.remove("members-sidebar-open"); // Fecha a lista de membros ao trocar de sala
   setTimeout(() => {
-    if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+    if (chatLog) {
+      const unreadSeparator = document.getElementById("unread-separator-line");
+      if (unreadSeparator) {
+        // Rola para o separador de não lidas
+        unreadSeparator.scrollIntoView({ behavior: "auto", block: "center" });
+      } else {
+        // Comportamento padrão: rola para o final
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+    }
   }, 0);
 
   if (roomName !== "login") {
@@ -887,6 +925,10 @@ function updateMemberList(roomName) {
       offlineList.innerHTML = "";
 
       const { online, offline } = response;
+
+      if (onlineMembersCountSpan) {
+        onlineMembersCountSpan.textContent = online.length;
+      }
 
       online.forEach((member) => {
         const item = createMemberListItem(member, true);

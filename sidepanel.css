@@ -241,6 +241,22 @@ body.members-sidebar-open #members-sidebar {
   font-family: "Courier New", Courier, monospace;
   flex-grow: 1;
 }
+#online-members-count {
+  color: #aaa;
+  font-size: 0.9em;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+#online-members-count::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #4caf50; /* Mesma cor da lista de membros */
+  margin-right: 6px;
+}
 #members-toggle-btn {
   background: none;
   border: none;
@@ -378,6 +394,27 @@ body.members-sidebar-open #members-sidebar {
   cursor: pointer;
 }
 
+/* --- NOVO: Separador de Mensagens Não Lidas --- */
+.unread-separator {
+  display: flex;
+  align-items: center;
+  color: #f87171; /* Cor vermelha suave */
+  font-size: 12px;
+  margin: 12px 0;
+}
+
+.unread-separator::before,
+.unread-separator::after {
+  content: "";
+  flex-grow: 1;
+  height: 1px;
+  background-color: #f87171;
+  opacity: 0.5;
+}
+
+.unread-separator span {
+  padding: 0 10px;
+}
 /* --- Prompt Bar --- */
 #prompt {
   background: #060606;
