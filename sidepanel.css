@@ -275,6 +275,7 @@ body.members-sidebar-open #members-sidebar {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  position: relative; /* Necessário para o botão de scroll */
   overflow: hidden;
 }
 #chat-log {
@@ -282,6 +283,33 @@ body.members-sidebar-open #members-sidebar {
   overflow-y: auto;
   overflow-x: hidden; /* Remove a barra de rolagem horizontal */
   padding: 10px;
+}
+
+/* --- NOVO: Botão de Rolar para Baixo --- */
+#scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 60px; /* Acima da barra de digitação */
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  background-color: rgba(42, 42, 42, 0.8);
+  border: 1px solid #555;
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 550;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+  pointer-events: none;
+}
+#scroll-to-bottom-btn:not(.hidden) {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 .message.system-event {
   color: #888;

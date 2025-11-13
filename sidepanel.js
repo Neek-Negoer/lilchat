@@ -149,6 +149,7 @@ let terminal,
   profileDmButton,
   replyPreviewBar,
   replyPreviewBarContent,
+  scrollToBottomBtn,
   mentionSuggestions,
   replyCancelBtn,
   forwardModal,
@@ -223,6 +224,7 @@ function initialize() {
 
   replyPreviewBar = document.getElementById("reply-preview-bar");
   replyPreviewBarContent = document.getElementById("reply-preview-bar-content");
+  scrollToBottomBtn = document.getElementById("scroll-to-bottom-btn");
   mentionSuggestions = document.getElementById("mention-suggestions");
   replyCancelBtn = document.getElementById("reply-cancel-btn");
 
@@ -989,6 +991,23 @@ function setupListeners() {
     setTimeout(hideMentionSuggestions, 200);
   });
 
+  // --- NOVO: Lógica do botão de rolar para baixo ---
+  safeAddEventListener(chatLog, "scroll", () => {
+    if (!chatLog || !scrollToBottomBtn) return;
+    // Mostra o botão se o usuário rolou mais de 300px para cima
+    const isScrolledUp =
+      chatLog.scrollHeight - chatLog.scrollTop > chatLog.clientHeight + 300;
+    scrollToBottomBtn.classList.toggle("hidden", !isScrolledUp);
+  });
+
+  safeAddEventListener(scrollToBottomBtn, "click", () => {
+    if (chatLog) {
+      chatLog.scrollTo({
+        top: chatLog.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  });
   function navigateMentionSuggestions(key) {
     const items = Array.from(
       mentionSuggestions.querySelectorAll(".mention-item")
