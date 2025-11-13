@@ -254,6 +254,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               sendResponse({ success: true });
               break;
 
+          // --- NOVO CASE: BUSCAR MEMBROS DA SALA (ONLINE/OFFLINE) ---
+          case "GET_ROOM_MEMBERS":
+              try {
+                  const { roomName } = request;
+                  const presenceRef = database.ref(`rooms/${roomName}/presence`);
+                  const allUsersWithRoomRef = usersRef.orderByChild(`rooms/${roomName}`).equalTo(true);
+
+                  const [presenceSnapshot, allUsersSnapshot] = await Promise.all([
+                      presenceRef.once('value'),
+                      allUsersWithRoomRef.once('value')
+                  ]);
+
+                  const onlineNicks = presenceSnapshot.exists() ? Object.values(presenceSnapshot.val()) : [];
+                  const onlineNickSet = new Set(onlineNicks.map(n => n.toLowerCase()));
+                  
+                  const online = [];
+                  const offline = [];
+
+                  if (allUsersSnapshot.exists()) {
+                      allUsersSnapshot.forEach(userSnapshot => {
+                          const userData = userSnapshot.val();
+                          const userNick = userSnapshot.key; // O nick é a chave
+                          const memberData = { nickname: userNick, rank: userData.rank || defaultRank };
+                          if (onlineNickSet.has(userNick.toLowerCase())) online.push(memberData);
+                          else offline.push(memberData);
+                      });
+                  }
+                  sendResponse({ success: true, online, offline });
+              } catch (e) { sendResponse({ success: false, error: e.message }); }
+              break;
+
           // --- NOVO CASE: BUSCAR PERFIL DE OUTRO USUÁRIO ---
           case "GET_USER_PROFILE":
               try {

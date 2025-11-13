@@ -107,6 +107,9 @@ let terminal,
   chatLog,
   chatInput,
   rankModal,
+  membersSidebar,
+  membersToggleBtn,
+  membersSidebarCloseBtn,
   rankModalCloseBtn,
   menuToggleBtn,
   sidebar,
@@ -170,6 +173,9 @@ function initialize() {
   chatLog = document.getElementById("chat-log");
   chatInput = document.getElementById("chat-input");
 
+  membersSidebar = document.getElementById("members-sidebar");
+  membersToggleBtn = document.getElementById("members-toggle-btn");
+  membersSidebarCloseBtn = document.getElementById("members-sidebar-close-btn");
   forwardModal = document.getElementById("forward-modal");
   forwardModalCloseBtn = document.getElementById("forward-modal-close-btn");
   forwardSearchInput = document.getElementById("forward-search-input");
@@ -804,6 +810,11 @@ function switchRoom(roomName) {
     item.classList.toggle("active", item.dataset.roomName === roomName);
   });
 
+  // Mostra ou esconde o botão de membros
+  const showMembersBtn = roomName !== "login" && roomName !== "home";
+  membersToggleBtn.classList.toggle("hidden", !showMembersBtn);
+  if (showMembersBtn) updateMemberList(roomName);
+
   if (chatLog) chatLog.innerHTML = "";
 
   if (roomName === "home") {
@@ -830,6 +841,7 @@ function switchRoom(roomName) {
   }
 
   document.body.classList.remove("sidebar-open");
+  document.body.classList.remove("members-sidebar-open"); // Fecha a lista de membros ao trocar de sala
   setTimeout(() => {
     if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
   }, 0);
@@ -837,6 +849,65 @@ function switchRoom(roomName) {
   if (roomName !== "login") {
     chrome.storage.local.set({ lastActiveRoom: roomName });
   }
+}
+
+// --- NOVO: Lógica da Lista de Membros ---
+function updateMemberList(roomName) {
+  const onlineList = document.getElementById("online-members-list");
+  const offlineList = document.getElementById("offline-members-list");
+
+  if (!onlineList || !offlineList) return;
+
+  onlineList.innerHTML = "Carregando...";
+  offlineList.innerHTML = "";
+
+  chrome.runtime.sendMessage(
+    { type: "GET_ROOM_MEMBERS", roomName },
+    (response) => {
+      if (response && response.success) {
+        onlineList.innerHTML = "";
+        offlineList.innerHTML = "";
+
+        const { online, offline } = response;
+
+        online.forEach((member) => {
+          const item = createMemberListItem(member, true);
+          onlineList.appendChild(item);
+        });
+
+        offline.forEach((member) => {
+          const item = createMemberListItem(member, false);
+          offlineList.appendChild(item);
+        });
+
+        if (online.length === 0)
+          onlineList.innerHTML =
+            '<div class="member-list-item" style="color: #888;">Ninguém online.</div>';
+        if (offline.length === 0)
+          offlineList.innerHTML =
+            '<div class="member-list-item" style="color: #888;">Nenhum membro offline.</div>';
+      } else {
+        onlineList.innerHTML = "Erro ao carregar.";
+      }
+    }
+  );
+}
+
+function createMemberListItem(member, isOnline) {
+  const item = document.createElement("div");
+  item.classList.add("member-list-item");
+
+  const statusDot = document.createElement("div");
+  statusDot.classList.add("status-dot", isOnline ? "online" : "offline");
+
+  const nameSpan = document.createElement("span");
+  nameSpan.classList.add("nick");
+  nameSpan.textContent = member.nickname;
+  applyRankStyles(nameSpan, member.rank);
+
+  item.appendChild(statusDot);
+  item.appendChild(nameSpan);
+  return item;
 }
 
 // --- LISTENERS ---
@@ -860,8 +931,23 @@ function setupListeners() {
   });
 
   if (menuToggleBtn) {
-    menuToggleBtn.onclick = () =>
+    menuToggleBtn.onclick = () => {
+      // Fecha a lista de membros se estiver aberta
+      document.body.classList.remove("members-sidebar-open");
       document.body.classList.toggle("sidebar-open");
+    };
+  }
+
+  if (membersToggleBtn) {
+    membersToggleBtn.onclick = () => {
+      document.body.classList.toggle("members-sidebar-open");
+    };
+  }
+
+  if (membersSidebarCloseBtn) {
+    membersSidebarCloseBtn.onclick = () => {
+      document.body.classList.remove("members-sidebar-open");
+    };
   }
 
   if (undockBtn) {

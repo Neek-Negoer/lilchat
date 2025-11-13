@@ -15,6 +15,24 @@
       <div id="terminal-header">
         <button id="menu-toggle-btn">&#9776;</button>
         <h2 id="current-room-title">/home</h2>
+        <button id="members-toggle-btn" class="hidden" title="Membros da Sala">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </button>
       </div>
       <div id="terminal">
         <div id="chat-log"></div>
@@ -34,6 +52,21 @@
             autofocus
           />
         </div>
+      </div>
+    </div>
+
+    <div id="members-sidebar">
+      <div class="sidebar-header">
+        <h3>Membros da Sala</h3>
+        <button id="members-sidebar-close-btn" class="sidebar-close-btn">
+          &times;
+        </button>
+      </div>
+      <div id="member-list-container">
+        <h4>Online</h4>
+        <div id="online-members-list"></div>
+        <h4>Offline</h4>
+        <div id="offline-members-list"></div>
       </div>
     </div>
 
