@@ -897,19 +897,35 @@ function createMemberListItem(member, isOnline) {
   const item = document.createElement("div");
   item.classList.add("member-list-item");
 
+  const picWrapper = document.createElement("div");
+  picWrapper.classList.add("member-pic-wrapper");
+
+  const pic = document.createElement("img");
+  pic.src = member.profilePicture;
+  pic.classList.add("member-list-pic");
+  pic.alt = member.nickname;
+
+  picWrapper.appendChild(pic);
+
   const statusDot = document.createElement("div");
   statusDot.classList.add("status-dot", isOnline ? "online" : "offline");
+  picWrapper.appendChild(statusDot);
 
   const nameSpan = document.createElement("span");
   nameSpan.classList.add("nick");
   nameSpan.textContent = member.nickname;
   applyRankStyles(nameSpan, member.rank);
 
-  item.appendChild(statusDot);
+  // Adiciona o evento de clique para abrir o perfil do usuário
+  item.style.cursor = "pointer";
+  item.onclick = () => {
+    openUserProfile(member.nickname);
+  };
+
+  item.appendChild(picWrapper);
   item.appendChild(nameSpan);
   return item;
 }
-
 // --- LISTENERS ---
 function setupListeners() {
   setupResizeListeners();

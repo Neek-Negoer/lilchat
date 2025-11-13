@@ -100,12 +100,34 @@ body.members-sidebar-open #members-sidebar {
   padding: 8px 0;
   font-size: 0.9em;
 }
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.member-list-item:hover {
+  background-color: #2a2a2a;
+  border-radius: 4px;
+}
+
+.member-pic-wrapper {
+  position: relative;
   margin-right: 8px;
   flex-shrink: 0;
+}
+.member-list-pic {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #333;
+  flex-shrink: 0;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  border: 2px solid #1a1a1a; /* Cor de fundo da sidebar para criar um contorno */
 }
 .status-dot.online {
   background-color: #4caf50;
