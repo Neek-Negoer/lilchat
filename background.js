@@ -32,6 +32,7 @@ let messageCache = {};
 let unreadCounts = {};
 const publicRooms = ["study", "gaming", "books", "movies", "fps"];
 let initializationPromise = null;
+let activeRoomInView = null; // NOVO: Sala que o usuário está vendo
 const LEAVE_CLEANUP_DELAY = 150;
 const defaultRank = {
   name: "USER",
@@ -119,7 +120,11 @@ async function setupJoin(roomName, announce = false) {
         }
         messageCache[roomName].push(message);
 
-        if (message.nickname !== userInfo.nickname) {
+        // NOVO: Só incrementa se a sala não estiver aberta e a mensagem não for do próprio usuário
+        if (
+          message.nickname !== userInfo.nickname &&
+          roomName !== activeRoomInView
+        ) {
           unreadCounts[roomName] = (unreadCounts[roomName] || 0) + 1;
           updateTotalBadgeCount();
         }
@@ -356,6 +361,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     switch (request.type) {
       case "MARK_ROOM_AS_READ":
         if (unreadCounts[request.roomName]) {
+          delete unreadCounts[request.roomName];
+          updateTotalBadgeCount();
+        }
+        sendResponse({ success: true });
+        break;
+
+      // NOVO CASE: Define a sala ativa e limpa as notificações dela
+      case "SET_ACTIVE_ROOM":
+        activeRoomInView = request.roomName;
+        if (request.roomName && unreadCounts[request.roomName]) {
           delete unreadCounts[request.roomName];
           updateTotalBadgeCount();
         }
