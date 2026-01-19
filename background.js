@@ -33,13 +33,23 @@ let initializationPromise = null;
 const LEAVE_CLEANUP_DELAY = 150;
 
 // --- KEEP SERVICE WORKER ALIVE ---
-chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
-chrome.alarms.onAlarm.addListener((alarm) => { /* ... */ });
+try {
+  chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
+  chrome.alarms.onAlarm.addListener((alarm) => { /* ... */ });
+} catch (e) {
+  console.error("Error setting up alarms:", e);
+}
 
 // --- OPEN SIDE PANEL ON ICON CLICK ---
-chrome.action.onClicked.addListener((tab) => {
-    chrome.sidePanel.open({ windowId: tab.windowId });
-  });
+try {
+  if (chrome && chrome.action && chrome.action.onClicked) {
+    chrome.action.onClicked.addListener((tab) => {
+      chrome.sidePanel.open({ windowId: tab.windowId });
+    });
+  }
+} catch (e) {
+  console.error("Error setting up action listener:", e);
+}
 
 
 // --- FIREBASE PRESENCE ---
