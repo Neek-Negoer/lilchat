@@ -3,7 +3,7 @@
   "name": "LilChat",
   "version": "0.6.0",
   "description": "Um chat persistente em popup ou sidebar.",
-  "action": {},
+
   "permissions": [
     "storage",
     "alarms",

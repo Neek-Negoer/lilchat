@@ -33,6 +33,12 @@ const LEAVE_CLEANUP_DELAY = 150;
 chrome.alarms.create("keepAlive", { periodInMinutes: 0.25 });
 chrome.alarms.onAlarm.addListener((alarm) => { /* ... */ });
 
+// --- OPEN SIDE PANEL ON ICON CLICK ---
+chrome.action.onClicked.addListener((tab) => {
+    chrome.sidePanel.open({ windowId: tab.windowId });
+  });
+
+
 // --- FIREBASE PRESENCE ---
 function setupPresence(roomName, user) {
   if (!user || !user.userId) return;
