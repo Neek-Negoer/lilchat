@@ -232,25 +232,7 @@ function initialize() {
 
   setupForwardModal();
 
-  try {
-    if (!firebase.apps.length) {
-      const firebaseConfig = {
-        apiKey: "AIzaSyC2VTY92muqSxy8YefrWUUW-gJG6E97hGk",
-        authDomain: "lilchat-64af5.firebaseapp.com",
-        projectId: "lilchat-64af5",
-        storageBucket: "lilchat-64af5.firebasestorage.app",
-        messagingSenderId: "615855326129",
-        appId: "1:1234567890:web:980e3799b7c8bb1047b390",
-        databaseURL: "https://lilchat-64af5-default-rtdb.firebaseio.com/",
-      };
-      firebase.initializeApp(firebaseConfig);
-    }
-    database = firebase.database();
-  } catch (e) {
-    console.error("Firebase não foi carregado corretamente!", e);
-    document.body.innerHTML = `<div style="color: red; padding: 10px; font-family: monospace;">CRITICAL ERROR: Failed to load Firebase. Check manifest.json and HTML files.</div>`;
-    return;
-  }
+
 
   chrome.storage.sync.get(["popupWidth", "popupHeight"], (result) => {
     if (document.body.classList.contains("is-popup")) {

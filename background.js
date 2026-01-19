@@ -1,6 +1,7 @@
 // --- IMPORT FIREBASE ---
 importScripts("firebase-app-compat.js");
 importScripts("firebase-database-compat.js");
+importScripts("firebase-auth-compat.js");
 
 // --- FIREBASE CONFIG ---
 // (Keep your existing config here)
@@ -17,6 +18,7 @@ const firebaseConfig = {
 // --- GLOBAL STATE ---
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+const auth = firebase.auth();
 const ranksRef = database.ref('public_ranks');
 const usersRef = database.ref('users');
 
@@ -130,6 +132,49 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               }
               catch (error) { sendResponse({ messages: {}, userInfo: { nickname: "Error", userId: "error" } }); }
               break;
+
+case "REGISTER":
+    try {
+        const { nick, pass, confirm } = request;
+        if (pass !== confirm) {
+            sendResponse({ success: false, error: "Passwords don't match." });
+            return;
+        }
+        const userCredential = await auth.createUserWithEmailAndPassword(`${nick}@lilchat.app`, pass);
+        const user = userCredential.user;
+        userInfo = { userId: user.uid, nickname: nick, rank: null };
+        await usersRef.child(user.uid).set(userInfo);
+        chrome.storage.sync.set(userInfo);
+        sendResponse({ success: true, userInfo: userInfo, joinedRooms: [], messages: {}, unreadCounts: {} });
+    } catch (error) {
+        sendResponse({ success: false, error: error.message });
+    }
+    break;
+
+case "LOGIN":
+    try {
+        const { nick, pass } = request;
+        const userCredential = await auth.signInWithEmailAndPassword(`${nick}@lilchat.app`, pass);
+        const user = userCredential.user;
+        const userSnapshot = await usersRef.child(user.uid).once('value');
+        userInfo = userSnapshot.val();
+        chrome.storage.sync.set(userInfo);
+        sendResponse({ success: true, userInfo: userInfo, joinedRooms: [], messages: {}, unreadCounts: {} });
+    } catch (error) {
+        sendResponse({ success: false, error: error.message });
+    }
+    break;
+
+case "LOGOUT":
+    try {
+        await auth.signOut();
+        userInfo = { nickname: "Guest", userId: null, rank: null };
+        chrome.storage.sync.clear();
+        sendResponse({ success: true });
+    } catch (error) {
+        sendResponse({ success: false, error: error.message });
+    }
+    break;
 
           case "GET_ROOM_MEMBERS":
             try {
@@ -253,17 +298,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true;
 });
 
-// --- INITIALIZATION (Same as before) ---
+// --- INITIALIZATION ---
 function initialize() {
-    initializationPromise = new Promise((resolve, reject) => {
-        chrome.storage.sync.get(['userId', 'nickname', 'rank'], (result) => {
-            if (!result.userId) {
-                 const newUserId = "user-" + Math.random().toString(36).substring(2, 10);
-                 userInfo = { userId: newUserId, nickname: "Guest_" + newUserId.substring(0, 4), rank: null };
-                 chrome.storage.sync.set(userInfo);
-                 usersRef.child(newUserId).set(userInfo);
+    initializationPromise = new Promise((resolve) => {
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const userSnapshot = await usersRef.child(user.uid).once('value');
+                if (userSnapshot.exists()) {
+                    userInfo = userSnapshot.val();
+                    chrome.storage.sync.set(userInfo);
+                } else {
+                    // This case should ideally not happen if registration is done correctly
+                    userInfo = { userId: user.uid, nickname: "NewUser", rank: null };
+                    await usersRef.child(user.uid).set(userInfo);
+                }
             } else {
-                 userInfo = result;
+                userInfo = { nickname: "Guest", userId: null, rank: null };
+                chrome.storage.sync.clear();
             }
             resolve();
         });
