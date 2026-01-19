@@ -340,6 +340,26 @@ function showChatScreen(
   });
   const ps = document.querySelector(".prompt-symbol");
   if (ps) ps.textContent = ">";
+  // Add this inside your setupListeners() function
+
+  const loginBtn = document.getElementById("login-btn");
+  if (loginBtn) {
+    loginBtn.onclick = () => {
+      // Optional: Add a visual indicator that it's loading
+      addMessageToLog({ type: 'event', event: 'system', text: "Authenticating with Google..." });
+      
+      chrome.runtime.sendMessage({ type: "LOGIN_WITH_GOOGLE" }, (response) => {
+        if (response && response.success) {
+          addMessageToLog({ type: 'event', event: 'system', text: `Success! Logged in as ${response.user.nickname}` });
+          
+          // Force a reload of data to update the UI (nickname, rank, etc)
+          initialize(); 
+        } else {
+          addMessageToLog({ type: 'event', event: 'system', text: `Login failed: ${response?.error || 'Unknown error'}` });
+        }
+      });
+    };
+  }
 }
 
 // --- Tutorials & Help ---

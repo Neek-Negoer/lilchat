@@ -205,66 +205,49 @@ case "LOGIN":
     }
     break;
 
-case "GOOGLE_LOGIN":
-    try {
-        // For Chrome extensions, we use signInWithPopup
-        // This is the standard way and works with extension context
-        const userCredential = await auth.signInWithPopup(googleProvider).catch(async (error) => {
-            // If popup fails, try redirect as fallback
-            console.log("Popup auth failed, trying redirect:", error.code);
-            // Store a flag to handle the redirect after auth
-            await chrome.storage.local.set({ awaitingGoogleAuth: true });
-            return auth.signInWithRedirect(googleProvider);
-        });
-        
-        if (!userCredential) {
-            // Redirect flow initiated, will be handled by onAuthStateChanged
-            sendResponse({ 
-                success: true, 
-                redirect: true,
-                message: "Redirecting to Google login..." 
-            });
-            return;
-        }
-        
-        const user = userCredential.user;
-        
-        // Check if user exists in database
-        const userSnapshot = await usersRef.child(user.uid).once('value');
-        
-        if (!userSnapshot.exists()) {
-            // New user - create profile from Google data
-            userInfo = {
-                userId: user.uid,
-                nickname: user.displayName || user.email.split('@')[0],
-                rank: null,
-                email: user.email,
-                profilePicture: user.photoURL || ""
-            };
-            await usersRef.child(user.uid).set(userInfo);
-        } else {
-            // Existing user - load their data
-            userInfo = userSnapshot.val();
-            // Update profile picture if not set
-            if (!userInfo.profilePicture && user.photoURL) {
-                userInfo.profilePicture = user.photoURL;
-                await usersRef.child(user.uid).update({ profilePicture: user.photoURL });
-            }
-        }
-        
-        joinedRooms = [];
-        activeListeners = {};
-        messageCache = {};
-        onlineUsersCache = {};
-        await chrome.storage.sync.set(userInfo);
-        await chrome.storage.local.remove('awaitingGoogleAuth');
-        
-        sendResponse({ success: true, userInfo: userInfo, joinedRooms: [], messages: {}, unreadCounts: {} });
-    } catch (error) {
-        console.error("Google login error:", error);
-        sendResponse({ success: false, error: error.message });
-    }
-    break;
+case "LOGIN_WITH_GOOGLE":
+              console.log("[BG] Starting Google Auth...");
+              chrome.identity.getAuthToken({ interactive: true }, function(token) {
+                  if (chrome.runtime.lastError) {
+                      console.error("[BG] Auth Error:", chrome.runtime.lastError);
+                      sendResponse({ success: false, error: chrome.runtime.lastError.message });
+                      return;
+                  }
+                  
+                  // Create a Firebase credential with the Google token!
+                  const credential = firebase.auth.GoogleAuthProvider.credential(null, token);
+                  
+                  // Sign in with credential
+                  firebase.auth().signInWithCredential(credential)
+                      .then((userCredential) => {
+                          const user = userCredential.user;
+                          console.log("[BG] Logged in as:", user.displayName);
+                          
+                          // Update our userInfo object
+                          userInfo.userId = user.uid;
+                          userInfo.nickname = user.displayName;
+                          // Optional: Save email or photoURL if you want
+                          
+                          // Save to Sync Storage
+                          chrome.storage.sync.set({ 
+                              userId: user.uid, 
+                              nickname: user.displayName 
+                          });
+
+                          // Update Firebase Database User Profile
+                          usersRef.child(user.uid).update({
+                              nickname: user.displayName,
+                              email: user.email
+                          });
+
+                          sendResponse({ success: true, user: userInfo });
+                      })
+                      .catch((error) => {
+                          console.error("[BG] Firebase Sign In Error:", error);
+                          sendResponse({ success: false, error: error.message });
+                      });
+              });
+              return true; // Keep async open
 
 case "LOGOUT":
     try {

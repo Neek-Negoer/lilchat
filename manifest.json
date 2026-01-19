@@ -8,13 +8,21 @@
     "storage",
     "alarms",
     "tabs",
-    "sidePanel"
+    "sidePanel",
+    "identity"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "side_panel": {
     "default_path": "sidepanel.html"
+  },
+  "oauth2": {
+    "client_id": "YOUR_CLIENT_ID_GOES_HERE.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+      ]
   },
   "web_accessible_resources": [
     {
