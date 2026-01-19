@@ -350,7 +350,8 @@ function showLoginTutorial() {
     { delay: 1500, text: "`/reg <nick> <senha> <confirmar_senha>`" },
     { delay: 2000, text: "Para logar, digite:" },
     { delay: 2500, text: "`/login <nick> <senha>`" },
-    { delay: 3000, text: "Use `/help` para ver isso de novo." },
+    { delay: 3000, text: "Ou clique em 'Logar com Google' abaixo!" },
+    { delay: 3500, text: "Use `/help` para ver isso de novo." },
   ];
   tutorialMessages.forEach((msg) => {
     setTimeout(() => {
@@ -368,6 +369,13 @@ function showLoginTutorial() {
       }
     }, msg.delay);
   });
+  
+  // Show Google login button
+  setTimeout(() => {
+    if (currentRoom === "login") {
+      showGoogleLoginButton();
+    }
+  }, 3500);
 }
 
 function showWelcomeTutorial() {
@@ -413,10 +421,12 @@ function showLoginHelp() {
     "`/reg <nick> <senha> <confirmar_senha>`",
     "Para logar, digite:",
     "`/login <nick> <senha>`",
+    "Ou clique em 'Logar com Google' abaixo!",
   ];
   messages.forEach((msg) =>
     addMessageToLog({ type: "event", event: "system", text: msg })
   );
+  showGoogleLoginButton();
 }
 
 function showWelcomeHelp() {
@@ -432,6 +442,126 @@ function showWelcomeHelp() {
   ];
   messages.forEach((msg) =>
     addMessageToLog({ type: "event", event: "system", text: msg })
+  );
+}
+
+// --- GOOGLE LOGIN BUTTON ---
+function showGoogleLoginButton() {
+  // Remove existing button if present
+  const existingBtn = document.getElementById("google-login-btn");
+  if (existingBtn) existingBtn.remove();
+  
+  // Create button container
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.cssText = "padding: 10px; text-align: center; margin-top: 10px;";
+  buttonContainer.id = "google-login-container";
+  
+  const button = document.createElement("button");
+  button.id = "google-login-btn";
+  button.textContent = "🔐 Logar com Google";
+  button.style.cssText = `
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: transform 0.2s, box-shadow 0.2s;
+  `;
+  
+  button.onmouseover = () => {
+    button.style.transform = "scale(1.05)";
+    button.style.boxShadow = "0 4px 12px rgba(66, 133, 244, 0.4)";
+  };
+  
+  button.onmouseout = () => {
+    button.style.transform = "scale(1)";
+    button.style.boxShadow = "none";
+  };
+  
+  button.onclick = handleGoogleLogin;
+  
+  buttonContainer.appendChild(button);
+  if (chatLog) {
+    chatLog.appendChild(buttonContainer);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+}
+
+function handleGoogleLogin() {
+  addMessageToLog({
+    type: "event",
+    event: "system",
+    text: "Iniciando login com Google..."
+  });
+  
+  chrome.runtime.sendMessage(
+    { type: "GOOGLE_LOGIN" },
+    (response) => {
+      if (response && response.success) {
+        if (response.redirect) {
+          // Redirect auth initiated, wait for auth state change
+          addMessageToLog({
+            type: "event",
+            event: "system",
+            text: "Aguardando autenticação...",
+          });
+          
+          // Poll for auth state changes
+          let attempts = 0;
+          const authCheckInterval = setInterval(() => {
+            attempts++;
+            chrome.runtime.sendMessage({ type: "GET_ALL_DATA" }, (response) => {
+              if (response && response.userInfo && response.userInfo.userId && response.userInfo.nickname !== "Guest") {
+                clearInterval(authCheckInterval);
+                addMessageToLog({
+                  type: "event",
+                  event: "system",
+                  text: "Bem-vindo! Carregando chat...",
+                });
+                showChatScreen(
+                  response.userInfo,
+                  response.joinedRooms,
+                  response.messages,
+                  response.unreadCounts
+                );
+              }
+            });
+            
+            // Stop polling after 30 seconds
+            if (attempts > 30) {
+              clearInterval(authCheckInterval);
+              addMessageToLog({
+                type: "event",
+                event: "system",
+                text: "Timeout de autenticação. Tente novamente.",
+              });
+            }
+          }, 1000);
+        } else {
+          // Direct popup auth succeeded
+          addMessageToLog({
+            type: "event",
+            event: "system",
+            text: "Bem-vindo! Carregando chat...",
+          });
+          showChatScreen(
+            response.userInfo,
+            response.joinedRooms,
+            response.messages,
+            response.unreadCounts
+          );
+        }
+      } else {
+        addMessageToLog({
+          type: "event",
+          event: "system",
+          text: `Erro no login: ${response?.error || "Falha desconhecida"}`,
+        });
+      }
+    }
   );
 }
 
