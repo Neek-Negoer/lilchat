@@ -26,6 +26,7 @@ let activeListeners = {};
 let messageCache = {};
 let onlineUsersCache = {}; // <--- NEW: Cache for online users
 let userInfo = { nickname: "Guest", userId: null, rank: null };
+let joinedRooms = []; // <--- Track which rooms the user is in
 const publicRooms = ['study', 'gaming', 'books', 'movies', 'fps'];
 let userInfoLoaded = false;
 let initializationPromise = null;
@@ -127,10 +128,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                   sendResponse({ 
                       messages: messageCache, 
                       onlineUsers: onlineUsersCache, // <--- Sending this to popup
-                      userInfo: userInfo 
+                      userInfo: userInfo,
+                      joinedRooms: joinedRooms  // <--- Include joined rooms
                   }); 
               }
-              catch (error) { sendResponse({ messages: {}, userInfo: { nickname: "Error", userId: "error" } }); }
+              catch (error) { sendResponse({ messages: {}, userInfo: { nickname: "Error", userId: "error" }, joinedRooms: [] }); }
               break;
 
 case "REGISTER":
@@ -143,6 +145,10 @@ case "REGISTER":
         const userCredential = await auth.createUserWithEmailAndPassword(`${nick}@lilchat.app`, pass);
         const user = userCredential.user;
         userInfo = { userId: user.uid, nickname: nick, rank: null };
+        joinedRooms = []; // Reset joined rooms for new user
+        activeListeners = {}; // Clear listeners
+        messageCache = {}; // Clear cache
+        onlineUsersCache = {};
         await usersRef.child(user.uid).set(userInfo);
         chrome.storage.sync.set(userInfo);
         sendResponse({ success: true, userInfo: userInfo, joinedRooms: [], messages: {}, unreadCounts: {} });
@@ -157,7 +163,26 @@ case "LOGIN":
         const userCredential = await auth.signInWithEmailAndPassword(`${nick}@lilchat.app`, pass);
         const user = userCredential.user;
         const userSnapshot = await usersRef.child(user.uid).once('value');
+        
+        if (!userSnapshot.exists()) {
+            sendResponse({ success: false, error: "User data not found in database." });
+            return;
+        }
+        
         userInfo = userSnapshot.val();
+        
+        // Ensure userInfo has required fields
+        if (!userInfo.nickname) {
+            userInfo.nickname = nick;
+        }
+        if (!userInfo.userId) {
+            userInfo.userId = user.uid;
+        }
+        
+        joinedRooms = []; // Reset joined rooms for new login session
+        activeListeners = {}; // Clear old listeners
+        messageCache = {}; // Clear old cache
+        onlineUsersCache = {};
         chrome.storage.sync.set(userInfo);
         sendResponse({ success: true, userInfo: userInfo, joinedRooms: [], messages: {}, unreadCounts: {} });
     } catch (error) {
@@ -169,6 +194,10 @@ case "LOGOUT":
     try {
         await auth.signOut();
         userInfo = { nickname: "Guest", userId: null, rank: null };
+        joinedRooms = []; // Clear joined rooms on logout
+        activeListeners = {}; // Clear all listeners
+        messageCache = {}; // Clear message cache
+        onlineUsersCache = {}; // Clear online users cache
         chrome.storage.sync.clear();
         sendResponse({ success: true });
     } catch (error) {
@@ -232,57 +261,142 @@ case "LOGOUT":
               return true;
 
           case "JOIN_ROOM":
-              // ... (Same as your previous file) ...
-              // Copy the JOIN_ROOM logic from the previous file here or keep what you had
-              // Just ensure it calls the updated setupJoin()
-             try { await initializationPromise; const { roomName, password } = request; const isPublic = publicRooms.includes(roomName); const roomMetaRef = database.ref(`rooms/${roomName}/meta`); const snapshot = await roomMetaRef.once('value');
-                if (!snapshot.exists()) { if (isPublic && password === '123') { await roomMetaRef.set({ password: "123", creator: "System" }); await setupJoin(roomName); sendResponse({ success: true, roomName: roomName }); } else { sendResponse({ success: false, error: "Room doesn't exist." }); } } else { const meta = snapshot.val(); if (meta.password === password) { await setupJoin(roomName); sendResponse({ success: true, roomName: roomName }); } else { sendResponse({ success: false, error: "Wrong password." }); } }
-              } catch (e) { console.error("Error in JOIN_ROOM:", e); sendResponse({ success: false, error: e.message || "Init failed." }); }
+              try { 
+                  await initializationPromise; 
+                  const { roomName, password } = request; 
+                  const isPublic = publicRooms.includes(roomName); 
+                  const roomMetaRef = database.ref(`rooms/${roomName}/meta`); 
+                  const snapshot = await roomMetaRef.once('value');
+                  
+                  if (!snapshot.exists()) { 
+                      if (isPublic && password === '123') { 
+                          await roomMetaRef.set({ password: "123", creator: "System" }); 
+                          await setupJoin(roomName);
+                          if (!joinedRooms.includes(roomName)) {
+                              joinedRooms.push(roomName);
+                          }
+                          sendResponse({ success: true, roomName: roomName }); 
+                      } else { 
+                          sendResponse({ success: false, error: "Room doesn't exist." }); 
+                      } 
+                  } else { 
+                      const meta = snapshot.val(); 
+                      if (meta.password === password) { 
+                          await setupJoin(roomName);
+                          if (!joinedRooms.includes(roomName)) {
+                              joinedRooms.push(roomName);
+                          }
+                          sendResponse({ success: true, roomName: roomName }); 
+                      } else { 
+                          sendResponse({ success: false, error: "Wrong password." }); 
+                      } 
+                  }
+              } catch (e) { 
+                  console.error("Error in JOIN_ROOM:", e); 
+                  sendResponse({ success: false, error: e.message || "Init failed." }); 
+              }
               break;
 
           case "CREATE_ROOM":
-               // ... (Same as previous file) ...
-               try { await initializationPromise; const { roomName: newRoomName, password: newPassword } = request; if (publicRooms.includes(newRoomName)) { sendResponse({ success: false, error: `'${newRoomName}' is public.` }); break; } const newRoomMetaRef = database.ref(`rooms/${newRoomName}/meta`); const snapshot = await newRoomMetaRef.once('value');
-                if (snapshot.exists()) { sendResponse({ success: false, error: "Room exists." }); } else { await newRoomMetaRef.set({ password: newPassword, creator: userInfo.nickname }); await setupJoin(newRoomName); sendResponse({ success: true, roomName: newRoomName }); }
-              } catch (e) { console.error("Error in CREATE_ROOM:", e); sendResponse({ success: false, error: e.message || "Init failed." }); }
+              try { 
+                  await initializationPromise; 
+                  const { roomName: newRoomName, password: newPassword } = request; 
+                  if (publicRooms.includes(newRoomName)) { 
+                      sendResponse({ success: false, error: `'${newRoomName}' is public.` }); 
+                      break; 
+                  } 
+                  const newRoomMetaRef = database.ref(`rooms/${newRoomName}/meta`); 
+                  const snapshot = await newRoomMetaRef.once('value');
+                  
+                  if (snapshot.exists()) { 
+                      sendResponse({ success: false, error: "Room exists." }); 
+                  } else { 
+                      await newRoomMetaRef.set({ password: newPassword, creator: userInfo.nickname }); 
+                      await setupJoin(newRoomName);
+                      if (!joinedRooms.includes(newRoomName)) {
+                          joinedRooms.push(newRoomName);
+                      }
+                      sendResponse({ success: true, roomName: newRoomName }); 
+                  }
+              } catch (e) { 
+                  console.error("Error in CREATE_ROOM:", e); 
+                  sendResponse({ success: false, error: e.message || "Init failed." }); 
+              }
               break;
 
           case "LEAVE_ROOM":
-              const { roomName: roomToLeave } = request;
-              if (activeListeners[roomToLeave]) {
-                 // Remove presence manually
-                 database.ref(`rooms/${roomToLeave}/presence/${userInfo.userId}`).remove();
-                 // Detach listeners
-                 if (activeListeners[roomToLeave].messages) database.ref(`rooms/${roomToLeave}/messages`).off('child_added', activeListeners[roomToLeave].messages);
-                 if (activeListeners[roomToLeave].presence) database.ref(`rooms/${roomToLeave}/presence`).off('value', activeListeners[roomToLeave].presence);
-                 
-                 delete activeListeners[roomToLeave];
-                 delete messageCache[roomToLeave];
-                 delete onlineUsersCache[roomToLeave];
-                 sendResponse({ success: true, roomName: roomToLeave });
-              } else {
-                 sendResponse({ success: false });
+              try {
+                  const { roomName: roomToLeave } = request;
+                  if (activeListeners[roomToLeave]) {
+                      // Remove presence manually
+                      database.ref(`rooms/${roomToLeave}/presence/${userInfo.userId}`).remove();
+                      // Detach listeners
+                      if (activeListeners[roomToLeave].messages) database.ref(`rooms/${roomToLeave}/messages`).off('child_added', activeListeners[roomToLeave].messages);
+                      if (activeListeners[roomToLeave].presence) database.ref(`rooms/${roomToLeave}/presence`).off('value', activeListeners[roomToLeave].presence);
+                      
+                      delete activeListeners[roomToLeave];
+                      delete messageCache[roomToLeave];
+                      delete onlineUsersCache[roomToLeave];
+                      
+                      // Remove from joinedRooms
+                      joinedRooms = joinedRooms.filter(r => r !== roomToLeave);
+                      
+                      sendResponse({ success: true, roomName: roomToLeave });
+                  } else {
+                      sendResponse({ success: false });
+                  }
+              } catch (e) {
+                  console.error("Error in LEAVE_ROOM:", e);
+                  sendResponse({ success: false, error: e.message });
               }
               break;
 
           case "SEND_MESSAGE":
-              // ... (Same as previous) ...
-              const { roomName: msgRoom, message } = request; const roomRef = activeListeners[msgRoom]?.messages ? database.ref(`rooms/${msgRoom}/messages`) : null;
-              if (roomRef) { const messageToSend = { ...message, timestamp: firebase.database.ServerValue.TIMESTAMP }; roomRef.push(messageToSend).then(() => { sendResponse({ success: true }); }).catch(e => sendResponse({ success: false, error: e.message })); } else { sendResponse({ success: false, error: "Not in room" }); }
+              try {
+                  const { roomName: msgRoom, message } = request; 
+                  const roomRef = activeListeners[msgRoom]?.messages ? database.ref(`rooms/${msgRoom}/messages`) : null;
+                  
+                  if (roomRef) { 
+                      const messageToSend = { 
+                          ...message, 
+                          timestamp: firebase.database.ServerValue.TIMESTAMP 
+                      }; 
+                      roomRef.push(messageToSend)
+                          .then(() => { sendResponse({ success: true }); })
+                          .catch(e => sendResponse({ success: false, error: e.message })); 
+                  } else { 
+                      sendResponse({ success: false, error: "Not in room" }); 
+                  }
+              } catch (e) {
+                  console.error("Error in SEND_MESSAGE:", e);
+                  sendResponse({ success: false, error: e.message });
+              }
               break;
 
           case "UPDATE_USER_INFO":
-             // ... (Same as previous) ...
-              const oldNickname = userInfo.nickname; userInfo = { ...userInfo, ...request.info }; 
-              // Update presence in ALL active rooms
-              if (userInfo.userId) { 
-                  for (const rName in activeListeners) { 
-                      database.ref(`rooms/${rName}/presence/${userInfo.userId}`).set({nickname: userInfo.nickname, rank: userInfo.rank || null}); 
+              try {
+                  const oldNickname = userInfo.nickname; 
+                  userInfo = { ...userInfo, ...request.info }; 
+                  
+                  // Update presence in ALL active rooms
+                  if (userInfo.userId) { 
+                      for (const rName in activeListeners) { 
+                          database.ref(`rooms/${rName}/presence/${userInfo.userId}`).set({
+                              nickname: userInfo.nickname, 
+                              rank: userInfo.rank || null
+                          }); 
+                      } 
                   } 
-              } 
-              chrome.storage.sync.set({ nickname: userInfo.nickname, rank: userInfo.rank });
-              usersRef.child(userInfo.userId).update({ nickname: userInfo.nickname, rank: userInfo.rank || null });
-              sendResponse({ success: true, userInfo: userInfo });
+                  chrome.storage.sync.set({ nickname: userInfo.nickname, rank: userInfo.rank });
+                  usersRef.child(userInfo.userId).update({ 
+                      nickname: userInfo.nickname, 
+                      rank: userInfo.rank || null 
+                  });
+                  sendResponse({ success: true, userInfo: userInfo });
+              } catch (e) {
+                  console.error("Error in UPDATE_USER_INFO:", e);
+                  sendResponse({ success: false, error: e.message });
+              }
               break;
               
           case "GET_PUBLIC_RANKS":
