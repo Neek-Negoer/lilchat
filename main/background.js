@@ -205,49 +205,62 @@ case "LOGIN":
     }
     break;
 
-case "LOGIN_WITH_GOOGLE":
+case "GOOGLE_LOGIN":
               console.log("[BG] Starting Google Auth...");
-              chrome.identity.getAuthToken({ interactive: true }, function(token) {
-                  if (chrome.runtime.lastError) {
-                      console.error("[BG] Auth Error:", chrome.runtime.lastError);
-                      sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                      return;
+              try {
+                  // Try popup first
+                  const result = await auth.signInWithPopup(googleProvider);
+                  const user = result.user;
+                  
+                  console.log("[BG] Logged in as:", user.displayName);
+                  
+                  // Check if user exists in database
+                  const userSnapshot = await usersRef.child(user.uid).once('value');
+                  
+                  if (!userSnapshot.exists()) {
+                      // Create new user profile
+                      userInfo = {
+                          userId: user.uid,
+                          nickname: user.displayName || user.email.split('@')[0],
+                          email: user.email,
+                          profilePicture: user.photoURL || "https://i.imgur.com/83Z2n8w.png",
+                          rank: null
+                      };
+                      await usersRef.child(user.uid).set(userInfo);
+                  } else {
+                      // Update existing user profile
+                      userInfo = userSnapshot.val();
+                      if (!userInfo.profilePicture && user.photoURL) {
+                          userInfo.profilePicture = user.photoURL;
+                          await usersRef.child(user.uid).update({ profilePicture: user.photoURL });
+                      }
+                      if (!userInfo.email) {
+                          userInfo.email = user.email;
+                          await usersRef.child(user.uid).update({ email: user.email });
+                      }
                   }
                   
-                  // Create a Firebase credential with the Google token!
-                  const credential = firebase.auth.GoogleAuthProvider.credential(null, token);
+                  // Clear state for new session
+                  joinedRooms = [];
+                  activeListeners = {};
+                  messageCache = {};
+                  onlineUsersCache = {};
                   
-                  // Sign in with credential
-                  firebase.auth().signInWithCredential(credential)
-                      .then((userCredential) => {
-                          const user = userCredential.user;
-                          console.log("[BG] Logged in as:", user.displayName);
-                          
-                          // Update our userInfo object
-                          userInfo.userId = user.uid;
-                          userInfo.nickname = user.displayName;
-                          // Optional: Save email or photoURL if you want
-                          
-                          // Save to Sync Storage
-                          chrome.storage.sync.set({ 
-                              userId: user.uid, 
-                              nickname: user.displayName 
-                          });
-
-                          // Update Firebase Database User Profile
-                          usersRef.child(user.uid).update({
-                              nickname: user.displayName,
-                              email: user.email
-                          });
-
-                          sendResponse({ success: true, user: userInfo });
-                      })
-                      .catch((error) => {
-                          console.error("[BG] Firebase Sign In Error:", error);
-                          sendResponse({ success: false, error: error.message });
-                      });
-              });
-              return true; // Keep async open
+                  chrome.storage.sync.set(userInfo);
+                  sendResponse({ success: true, userInfo: userInfo, joinedRooms: [], messages: {}, unreadCounts: {} });
+              } catch (popupError) {
+                  console.log("[BG] Popup failed, trying redirect:", popupError);
+                  
+                  try {
+                      // Fallback to redirect
+                      await auth.signInWithRedirect(googleProvider);
+                      sendResponse({ success: true, redirect: true });
+                  } catch (redirectError) {
+                      console.error("[BG] Redirect failed:", redirectError);
+                      sendResponse({ success: false, error: redirectError.message });
+                  }
+              }
+              break;
 
 case "LOGOUT":
     try {
