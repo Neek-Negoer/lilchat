@@ -1,4 +1,4 @@
-// --- IMPORT FIREBASE ---
+s// --- IMPORT FIREBASE ---
 importScripts("firebase-app-compat.js");
 importScripts("firebase-database-compat.js");
 importScripts("firebase-auth-compat.js");

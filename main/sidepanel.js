@@ -345,15 +345,30 @@ function showChatScreen(
   const loginBtn = document.getElementById("login-btn");
   if (loginBtn) {
     loginBtn.onclick = () => {
-      // Optional: Add a visual indicator that it's loading
       addMessageToLog({ type: 'event', event: 'system', text: "Authenticating with Google..." });
       
-      chrome.runtime.sendMessage({ type: "LOGIN_WITH_GOOGLE" }, (response) => {
+      chrome.runtime.sendMessage({ type: "GOOGLE_LOGIN" }, (response) => {
         if (response && response.success) {
-          addMessageToLog({ type: 'event', event: 'system', text: `Success! Logged in as ${response.user.nickname}` });
-          
-          // Force a reload of data to update the UI (nickname, rank, etc)
-          initialize(); 
+          if (response.redirect) {
+            addMessageToLog({ type: 'event', event: 'system', text: "Aguardando autenticação..." });
+            let attempts = 0;
+            const authCheckInterval = setInterval(() => {
+              attempts++;
+              chrome.runtime.sendMessage({ type: "GET_ALL_DATA" }, (r) => {
+                if (r && r.userInfo && r.userInfo.userId && r.userInfo.nickname !== "Guest") {
+                  clearInterval(authCheckInterval);
+                  showChatScreen(r.userInfo, r.joinedRooms, r.messages, r.unreadCounts || {});
+                }
+              });
+              if (attempts > 30) {
+                clearInterval(authCheckInterval);
+                addMessageToLog({ type: 'event', event: 'system', text: "Timeout. Tente novamente." });
+              }
+            }, 1000);
+          } else {
+            addMessageToLog({ type: 'event', event: 'system', text: `Bem-vindo! Carregando chat...` });
+            showChatScreen(response.userInfo, response.joinedRooms, response.messages, response.unreadCounts || {});
+          }
         } else {
           addMessageToLog({ type: 'event', event: 'system', text: `Login failed: ${response?.error || 'Unknown error'}` });
         }
